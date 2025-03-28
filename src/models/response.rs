@@ -1,4 +1,5 @@
 // Start of file: src/models/response.rs
+
 use serde::Serialize;
 use serde_json::Value;
 
