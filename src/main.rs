@@ -1,3 +1,4 @@
+// Start of file: src/main.rs
 mod config;
 mod controllers;
 mod middleware;
@@ -10,15 +11,14 @@ use routes::register_routes;
 
 #[tokio::main]
 async fn main() {
-    // Inicializa la configuración (placeholder)
     config::init();
-
-    // Construye la aplicación con las rutas y añade el middleware de formateo de respuesta.
     let app = register_routes();
-
     println!("Servidor escuchando en {}", SERVER_ADDRESS);
     Server::bind(&SERVER_ADDRESS.parse().unwrap())
         .serve(app.into_make_service())
         .await
         .unwrap();
 }
+
+
+// End of file: src/main.rs

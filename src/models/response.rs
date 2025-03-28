@@ -1,3 +1,4 @@
+// Start of file: src/models/response.rs
 use serde::Serialize;
 use serde_json::Value;
 
@@ -9,3 +10,5 @@ pub struct ResponseFormat {
     pub messages: Vec<String>,
     pub errors: Vec<String>,
 }
+
+// End of file: src/models/response.rs

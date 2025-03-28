@@ -1,10 +1,12 @@
+// Start of file: src/middleware/error_middleware.rs
+
 use axum::{
     response::{IntoResponse, Response},
     http::StatusCode,
     Json,
 };
-use serde_json::Value;
 use crate::models::response::ResponseFormat;
+use serde_json::Value;
 
 #[derive(Debug)]
 pub struct AppError {
@@ -24,3 +26,5 @@ impl IntoResponse for AppError {
         (self.status, Json(body)).into_response()
     }
 }
+
+// End of file: src/middleware/error_middleware.rs
