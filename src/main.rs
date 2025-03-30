@@ -12,6 +12,11 @@ mod routes;
 
 #[tokio::main]
 async fn main() {
+    // 1) Initialize a default tracing subscriber that prints all INFO (and above) logs
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
+    
     // 1) Build the router from our `app.rs`
     let app = app::create_app();
 

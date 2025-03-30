@@ -10,6 +10,8 @@ pub struct ResponseFormat {
     pub data: Value,
     pub messages: Vec<String>,
     pub errors: Vec<String>,
+    pub time: String,
+    pub date: String,
 }
 
 // End of file: /src/models/response_format.rs

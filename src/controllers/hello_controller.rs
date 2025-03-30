@@ -1,10 +1,11 @@
 // Start of file: /src/controllers/hello_controller.rs
 
 use axum::{http::StatusCode, Json};
-use serde_json::json;
+use serde_json::{json, Value};
 
 pub async fn hello_handler() -> (StatusCode, Json<serde_json::Value>) {
-    let body = json!({ "message": "Hello from Axum!" });
+    let body: Value = json!({ "message": "Hello from Axum!" });
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     (StatusCode::OK, Json(body))
 }
 
