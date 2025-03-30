@@ -22,3 +22,6 @@ tower-http = "0.6.2"
 
 # For collecting axum::body::Body into Bytes
 http-body-util = "0.1"
+
+# For tracing support (optional, but recommended for logging)
+tracing = "0.1"
