@@ -1,4 +1,4 @@
-// Start of file: /src/routes/hello.rs
+// Start of file: /src/controllers/hello.rs
 
 use axum::{http::StatusCode, Json};
 use serde_json::json;
@@ -8,4 +8,4 @@ pub async fn hello_handler() -> (StatusCode, Json<serde_json::Value>) {
     (StatusCode::OK, Json(body))
 }
 
-// End of file: /src/routes/hello.rs
+// End of file: /src/controllers/hello.rs

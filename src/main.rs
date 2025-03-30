@@ -1,33 +1,30 @@
 // Start of file: /src/main.rs
 
-use axum::{
-    Router,
-    routing::get,
-    middleware::from_fn,
-    serve
-};
 use tokio::net::TcpListener;
+use axum::serve;
 
+// Pull in everything else
+mod app;
+mod controllers;
+mod middlewares;
 mod models;
 mod routes;
-mod middleware;
 
 #[tokio::main]
 async fn main() {
-    // Build a router with your route(s)
-    let app = Router::new()
-        .route("/hello", get(routes::hello::hello_handler))
-        // Apply the "wrap_in_response_format" middleware to ALL routes
-        .layer(from_fn(middleware::wrap_in_response_format));
+    // 1) Build the router from our `app.rs`
+    let app = app::create_app();
 
-    // Bind a TcpListener
+    // 2) Bind and serve
     let listener = TcpListener::bind("127.0.0.1:3000")
         .await
         .expect("failed to bind port 3000");
+
     println!("Listening on http://{}", listener.local_addr().unwrap());
 
-    // Now serve using `axum::serve(...).await` (NO `.run()` in axum 0.8!)
-    serve(listener, app).await.expect("server error");
+    serve(listener, app)
+        .await
+        .expect("server error");
 }
 
 // End of file: /src/main.rs
