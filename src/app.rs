@@ -1,3 +1,5 @@
+// Start of file: /src/app.rs
+
 use axum::{
     Router,
     middleware::from_fn,
@@ -6,8 +8,6 @@ use axum::{
 use crate::routes::hello_route::hello_routes;
 use crate::middlewares::response_wrapper::response_wrapper;
 
-// Build the entire application router.
-// This function combines all your routes and applies global middleware.
 pub fn create_app() -> Router {
     // Combine routes
     Router::new()
@@ -15,3 +15,5 @@ pub fn create_app() -> Router {
         // Apply your universal JSON response wrapper
         .layer(from_fn(response_wrapper))
 }
+
+// End of file: /src/app.rs

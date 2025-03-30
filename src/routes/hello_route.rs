@@ -1,4 +1,4 @@
-// Start of file: /src/routes/hello.rs
+// Start of file: /src/routes/hello_route.rs
 
 use axum::{
     routing::get,
@@ -12,4 +12,4 @@ pub fn hello_routes() -> Router {
         .route("/hello", get(hello_handler))
 }
 
-// End of file: /src/routes/hello.rs
+// End of file: /src/routes/hello_route.rs
