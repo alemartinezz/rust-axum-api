@@ -1,7 +1,5 @@
-// Start of file: src/routes/mod.rs
+// Start of file: /src/routes/mod.rs
 
-pub mod fallback_handler;
-pub mod routes;
-pub use routes::register_routes;
+pub mod hello;
 
-// End of file: src/routes/mod.rs
+// End of file: /src/routes/mod.rs

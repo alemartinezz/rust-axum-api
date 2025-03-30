@@ -1,9 +1,9 @@
-// Start of file: src/models/response.rs
+// Start of file: /src/models/response_format.rs
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ResponseFormat {
     pub status: String,
     pub code: u16,
@@ -12,4 +12,4 @@ pub struct ResponseFormat {
     pub errors: Vec<String>,
 }
 
-// End of file: src/models/response.rs
+// End of file: /src/models/response_format.rs

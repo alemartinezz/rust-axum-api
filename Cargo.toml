@@ -1,11 +1,24 @@
 [package]
-name = "rust-axum-api"
+name = "my-axum-project"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Enough features for typical route macros and JSON handling
-axum = { version = "0.8.3", features = ["macros"] }
+# Tokio runtime (for async fn main)
 tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+
+# Axum web framework (v0.8.x)
+axum = "0.8.3"
+
+# JSON and serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Tower for layering 
+tower = { version = "0.5", features = ["util"] }
+
+# (Optional) tower-http for extra middlewares, not strictly needed here
+tower-http = "0.6.2"
+
+# For collecting axum::body::Body into Bytes
+http-body-util = "0.1"

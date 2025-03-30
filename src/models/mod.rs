@@ -1,5 +1,5 @@
-// Start of file: src/models/mod.rs
+// Start of file: /src/models/mod.rs
 
-pub mod response;
+pub mod response_format;
 
-// End of file: src/models/mod.rs
+// End of file: /src/models/mod.rs
