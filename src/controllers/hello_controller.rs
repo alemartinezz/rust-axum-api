@@ -5,7 +5,9 @@ use serde_json::{json, Value};
 
 pub async fn hello_handler() -> (StatusCode, Json<serde_json::Value>) {
     let body: Value = json!({ "message": "Hello from Axum!" });
+    
     tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    
     (StatusCode::OK, Json(body))
 }
 

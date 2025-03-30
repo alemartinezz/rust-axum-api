@@ -1,7 +1,7 @@
 // Start of file: /src/main.rs
 
 use tokio::net::TcpListener;
-use axum::serve;
+use axum::{serve, Router};
 
 // Pull in everything else
 mod app;
@@ -18,10 +18,10 @@ async fn main() {
         .init();
     
     // 1) Build the router from our `app.rs`
-    let app = app::create_app();
+    let app: Router = app::create_app();
 
     // 2) Bind and serve
-    let listener = TcpListener::bind("127.0.0.1:3000")
+    let listener: TcpListener = TcpListener::bind("127.0.0.1:3000")
         .await
         .expect("failed to bind port 3000");
 
