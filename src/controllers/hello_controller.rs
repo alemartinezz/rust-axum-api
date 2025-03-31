@@ -2,7 +2,9 @@
 
 use axum::{http::StatusCode, Json};
 use serde_json::{json, Value};
+use std::backtrace::Backtrace;
 
+#[tracing::instrument(fields(backtrace = ?Backtrace::capture()))]
 pub async fn hello_handler() -> (StatusCode, Json<serde_json::Value>) {
     let body: Value = json!({ "message": "Hello from Axum!" });
     

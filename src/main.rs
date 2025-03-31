@@ -3,29 +3,27 @@
 use tokio::net::TcpListener;
 use axum::{serve, Router};
 
-mod app;
-mod controllers;
-mod middlewares;
-mod models;
-mod routes;
+use my_axum_project::app;
 
 #[tokio::main]
 async fn main() {
     // 1) Initialize a default tracing subscriber that prints all INFO (and above) logs
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::FULL)
         .init();
     
-    // 1) Build the router from our `app.rs`
+    // 2) Build the router from our `app.rs`
     let app: Router = app::create_app();
 
-    // 2) Bind and serve
+    // 3) Bind the app to a TCP listener on port 3000
     let listener: TcpListener = TcpListener::bind("127.0.0.1:3000")
         .await
         .expect("failed to bind port 3000");
 
     println!("Listening on http://{}", listener.local_addr().unwrap());
 
+    // 4) Serve the app on the listener
     serve(listener, app)
         .await
         .expect("server error");

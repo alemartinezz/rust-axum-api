@@ -32,16 +32,14 @@ fn body_to_json(raw: &[u8]) -> Value {
     }
 }
 
-/// Convert any `Serialize` type into a tab‐indented JSON string.
-fn to_tab_indented_json<T: Serialize>(value: &T) -> serde_json::Result<String> {
+/// Convert any `Serialize` type into a two space‐indented JSON string.
+fn to_two_space_indented_json<T: Serialize>(value: &T) -> serde_json::Result<String> {
     let mut writer: Vec<u8> = Vec::new();
-    // Use `\t` for indentation
-    let formatter: PrettyFormatter<'_> = PrettyFormatter::with_indent(b"\t");
+    let formatter: PrettyFormatter<'_> = PrettyFormatter::with_indent(b"  ");
     let mut ser: Serializer<&mut Vec<u8>, PrettyFormatter<'_>> = Serializer::with_formatter(&mut writer, formatter);
 
     value.serialize(&mut ser)?;
 
-    // Safe to unwrap because we've constructed it ourselves.
     Ok(String::from_utf8(writer).expect("should be valid UTF-8"))
 }
 
@@ -86,7 +84,6 @@ fn build_response_format(
     parsed_json: Value,
     start_time: Instant,
 ) -> ResponseFormat {
-    // Build a reason string from the status (e.g. "OK", "NOT_FOUND")
     let reason: String = parts
         .status
         .canonical_reason()
@@ -94,17 +91,13 @@ fn build_response_format(
         .to_uppercase()
         .replace(' ', "_");
 
-    // Example: if we got a 408, fill in an error message
     let mut messages: Vec<String> = vec![];
     
     if parts.status == StatusCode::REQUEST_TIMEOUT {
         messages.push("The request timed out after 10 seconds.".to_owned());
     }
 
-    // Calculate the duration in milliseconds
     let duration_ms: u128 = start_time.elapsed().as_millis();
-
-    // Current UTC date/time in ISO 8601
     let current_utc_date: String = Utc::now().to_rfc3339();
 
     ResponseFormat {
@@ -117,14 +110,14 @@ fn build_response_format(
     }
 }
 
-/// Logs the `ResponseFormat` in tab‐indented JSON format.
+/// Logs the `ResponseFormat` in two space‐indented JSON format.
 fn log_response(wrapped: &ResponseFormat) {
-    match to_tab_indented_json(wrapped) {
-        Ok(tabbed_json) => {
-            info!("\n{}", tabbed_json);
+    match to_two_space_indented_json(wrapped) {
+        Ok(spaced_json) => {
+            info!("\n{}", spaced_json);
         }
         Err(err) => {
-            error!("Could not format response as tab‐indented JSON: {err}");
+            error!("Could not format response as two space‐indented JSON: {err}");
         }
     }
 }
@@ -135,7 +128,6 @@ fn build_http_response(
     mut parts: axum::http::response::Parts,
     wrapped: &ResponseFormat,
 ) -> Response<Body> {
-    // Encode the new JSON body for the actual response
     let new_body: Vec<u8> = match serde_json::to_vec(wrapped) {
         Ok(json) => json,
         Err(err) => {
@@ -145,7 +137,6 @@ fn build_http_response(
         }
     };
 
-    // Update headers to set content type and remove outdated content-length
     parts
         .headers
         .remove(axum::http::header::CONTENT_LENGTH);
@@ -158,23 +149,13 @@ fn build_http_response(
 }
 
 /// Middleware that wraps the response in a universal JSON format.
-/// 
-/// - Extracts a start time from the request extensions (if available).
-/// - Calls the inner handler (via `Next`).
-/// - Collects the body and converts it to JSON.
-/// - Wraps the JSON in a universal response format (`ResponseFormat`).
-/// - Logs the final response in tab‐indented JSON.
-/// - Returns the final HTTP response.
 pub async fn response_wrapper(
     req: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, Infallible> {
     let start_time: Instant = extract_start_time(&req);
-
-    // Call the inner handler
     let response: Response<Body> = next.run(req).await;
 
-    // Attempt to collect response body
     let (parts, raw_bytes) = match collect_response_body(response).await {
         Ok(ok) => ok,
         Err(err_response) => {
@@ -185,10 +166,7 @@ pub async fn response_wrapper(
     let parsed_json: Value = body_to_json(&raw_bytes);
     let wrapped: ResponseFormat = build_response_format(&parts, parsed_json, start_time);
 
-    // Log the final wrapped response
     log_response(&wrapped);
-
-    // Construct the final HTTP response
     let final_response: Response<Body> = build_http_response(parts, &wrapped);
 
     Ok(final_response)
