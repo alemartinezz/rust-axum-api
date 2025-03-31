@@ -2,6 +2,11 @@
 name = "my-axum-project"
 version = "0.1.0"
 edition = "2021"
+description = "This is a simple Axum application that demonstrates how to set up a server with middleware, error handling, and graceful shutdown. It uses the `axum` framework for building web applications in Rust, and `tokio` for asynchronous programming."
+license = "MIT OR Apache-2.0"
+authors = ["ale"]
+repository = "https://github.com/alemartinezz/my-axum-project"
+rust-version = "1.85.1"
 
 [dependencies]
 # Tokio runtime (for async fn main)
@@ -25,7 +30,7 @@ http-body-util = "0.1"
 
 # For tracing support (optional, but recommended for logging)
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # For tracing subscriber (optional, but recommended for logging)
 chrono = "0.4"
