@@ -1,9 +1,12 @@
 // Start of file: /src/app.rs
 
+use std::time::Duration;
+
 use axum::{
     Router,
     middleware::from_fn,
 };
+use tower_http::timeout::TimeoutLayer;
 
 use crate::routes::hello_route::hello_routes;
 use crate::middlewares::{
@@ -12,14 +15,18 @@ use crate::middlewares::{
 };
 
 pub fn create_app() -> Router {
-    // Combine routes
     Router::new()
         .merge(hello_routes())
-        // Put start_time_middleware *last* so it is the "outermost"
-        .layer(from_fn(start_time_middleware))
-        // Put response_wrapper *under* the timing layer
+
+        // 1) Innermost layer: 10s request timeout
+        //    If the handler doesn't finish in 10s, this returns a 408 response
+        .layer(TimeoutLayer::new(Duration::from_secs(5)))
+
+        // 2) Next layer: wrap *all* responses (including the 408) in JSON
         .layer(from_fn(response_wrapper))
-        
+
+        // 3) Outermost layer: track start times for logging/metrics
+        .layer(from_fn(start_time_middleware))
 }
 
 // End of file: /src/app.rs

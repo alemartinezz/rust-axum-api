@@ -94,6 +94,12 @@ fn build_response_format(
         .to_uppercase()
         .replace(' ', "_");
 
+    // Example: if we got a 408, fill in an error message
+    let mut errors = vec![];
+    if parts.status == StatusCode::REQUEST_TIMEOUT {
+        errors.push("The request timed out after 10 seconds.".to_owned());
+    }
+
     // Calculate the duration in milliseconds
     let duration_ms: u128 = start_time.elapsed().as_millis();
 
@@ -105,7 +111,7 @@ fn build_response_format(
         code: parts.status.as_u16(),
         data: parsed_json,
         messages: vec![],
-        errors: vec![],
+        errors,
         time: format!("{} ms", duration_ms),
         date: current_utc_date,
     }

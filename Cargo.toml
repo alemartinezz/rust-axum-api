@@ -18,7 +18,7 @@ serde_json = "1.0"
 tower = { version = "0.5", features = ["util"] }
 
 # (Optional) tower-http for extra middlewares, not strictly needed here
-tower-http = "0.6.2"
+tower-http = { version = "0.6.2", features = ["cors", "timeout"] }
 
 # For collecting axum::body::Body into Bytes
 http-body-util = "0.1"
@@ -26,7 +26,6 @@ http-body-util = "0.1"
 # For tracing support (optional, but recommended for logging)
 tracing = "0.1"
 tracing-subscriber = "0.3"
-
 
 # For tracing subscriber (optional, but recommended for logging)
 chrono = "0.4"
