@@ -34,3 +34,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # For tracing subscriber (optional, but recommended for logging)
 chrono = "0.4"
+
+# For auto-reloading the server
+listenfd = "1.0.2"
