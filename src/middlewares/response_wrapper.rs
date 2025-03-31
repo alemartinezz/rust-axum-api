@@ -95,7 +95,7 @@ fn build_response_format(
         .replace(' ', "_");
 
     // Example: if we got a 408, fill in an error message
-    let mut messages = vec![];
+    let mut messages: Vec<String> = vec![];
     
     if parts.status == StatusCode::REQUEST_TIMEOUT {
         messages.push("The request timed out after 10 seconds.".to_owned());

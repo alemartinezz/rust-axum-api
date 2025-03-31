@@ -12,7 +12,7 @@ pub async fn start_time_middleware(
     mut req: Request<Body>,
     next: Next<>,
 ) -> Result<axum::response::Response, Infallible> {
-    let start = Instant::now();
+    let start: Instant = Instant::now();
     
     req.extensions_mut().insert(start);
 

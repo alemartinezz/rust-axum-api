@@ -3,7 +3,6 @@
 use tokio::net::TcpListener;
 use axum::{serve, Router};
 
-// Pull in everything else
 mod app;
 mod controllers;
 mod middlewares;
