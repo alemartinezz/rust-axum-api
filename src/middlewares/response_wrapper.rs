@@ -36,7 +36,8 @@ fn body_to_json(raw: &[u8]) -> Value {
 fn to_two_space_indented_json<T: Serialize>(value: &T) -> serde_json::Result<String> {
     let mut writer: Vec<u8> = Vec::new();
     let formatter: PrettyFormatter<'_> = PrettyFormatter::with_indent(b"  ");
-    let mut ser: Serializer<&mut Vec<u8>, PrettyFormatter<'_>> = Serializer::with_formatter(&mut writer, formatter);
+    let mut ser: Serializer<&mut Vec<u8>, PrettyFormatter<'_>> =
+        Serializer::with_formatter(&mut writer, formatter);
 
     value.serialize(&mut ser)?;
 
@@ -114,7 +115,7 @@ fn build_response_format(
 fn log_response(wrapped: &ResponseFormat) {
     match to_two_space_indented_json(wrapped) {
         Ok(spaced_json) => {
-            info!("\n{}", spaced_json);
+            info!("\nFinal response:\n{}", spaced_json);
         }
         Err(err) => {
             error!("Could not format response as two space‐indented JSON: {err}");
@@ -167,6 +168,7 @@ pub async fn response_wrapper(
     let wrapped: ResponseFormat = build_response_format(&parts, parsed_json, start_time);
 
     log_response(&wrapped);
+
     let final_response: Response<Body> = build_http_response(parts, &wrapped);
 
     Ok(final_response)

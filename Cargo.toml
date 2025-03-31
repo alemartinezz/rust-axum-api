@@ -18,7 +18,7 @@ serde_json = "1.0"
 tower = { version = "0.5.2", features = ["util", "timeout"] }
 
 # (Optional) tower-http for extra middlewares, not strictly needed here
-tower-http = { version = "0.6.2" }
+tower-http = { version = "0.6.2", features = ["trace"] }
 
 # For collecting axum::body::Body into Bytes
 http-body-util = "0.1"
