@@ -9,7 +9,6 @@ pub struct ResponseFormat {
     pub code: u16,
     pub data: Value,
     pub messages: Vec<String>,
-    pub errors: Vec<String>,
     pub time: String,
     pub date: String,
 }

@@ -95,9 +95,10 @@ fn build_response_format(
         .replace(' ', "_");
 
     // Example: if we got a 408, fill in an error message
-    let mut errors = vec![];
+    let mut messages = vec![];
+    
     if parts.status == StatusCode::REQUEST_TIMEOUT {
-        errors.push("The request timed out after 10 seconds.".to_owned());
+        messages.push("The request timed out after 10 seconds.".to_owned());
     }
 
     // Calculate the duration in milliseconds
@@ -110,8 +111,7 @@ fn build_response_format(
         status: reason,
         code: parts.status.as_u16(),
         data: parsed_json,
-        messages: vec![],
-        errors,
+        messages,
         time: format!("{} ms", duration_ms),
         date: current_utc_date,
     }
@@ -121,7 +121,7 @@ fn build_response_format(
 fn log_response(wrapped: &ResponseFormat) {
     match to_tab_indented_json(wrapped) {
         Ok(tabbed_json) => {
-            info!("\n\n{}\n", tabbed_json);
+            info!("\n{}", tabbed_json);
         }
         Err(err) => {
             error!("Could not format response as tab‐indented JSON: {err}");
