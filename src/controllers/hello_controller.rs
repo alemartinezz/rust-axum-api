@@ -1,15 +1,15 @@
 // Start of file: /src/controllers/hello_controller.rs
 
-use axum::{http::StatusCode, Json};
+use axum::{http::StatusCode, Json, extract::State};
 use serde_json::{json, Value};
 use std::backtrace::Backtrace;
+use crate::models::state::AppState;
 
 #[tracing::instrument(fields(backtrace = ?Backtrace::capture()))]
-pub async fn hello_handler() -> (StatusCode, Json<serde_json::Value>) {
-    let body: Value = json!({ "message": "Hello from Axummmm!" });
-    
-    //tokio::time::sleep(std::time::Duration::from_secs(7)).await;
-    
+pub async fn hello_handler(
+    State(_state): State<AppState>,
+) -> (StatusCode, Json<Value>) {
+    let body = json!({ "message": "Hello from Axummmm!" });
     (StatusCode::OK, Json(body))
 }
 

@@ -37,3 +37,7 @@ chrono = "0.4"
 
 # For auto-reloading the server
 listenfd = "1.0.2"
+
+# Env
+dotenv = "0.15"
+anyhow = "1.0"
