@@ -1,3 +1,5 @@
+// Start of file: src/models/state.tf
+
 use crate::models::env_vars::EnvironmentVariables;
 
 #[derive(Clone, Debug)]
@@ -11,3 +13,5 @@ impl AppState {
         Ok(Self { env })
     }
 }
+
+// End of file: src/models/state.tf

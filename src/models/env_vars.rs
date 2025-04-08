@@ -1,3 +1,5 @@
+// Start of file: src/models/env_vars.tf
+
 use std::borrow::Cow;
 use anyhow::{bail, Result};
 use dotenv::dotenv;
@@ -7,10 +9,11 @@ pub struct EnvironmentVariables {
     pub host: Cow<'static, str>,
     pub port: u16,
     pub protocol: Cow<'static, str>,
+    pub max_request_body_size: usize,
     pub db_host: Cow<'static, str>,
     pub db_port: u16,
     pub db_user: Cow<'static, str>,
-    pub db_password: Cow<'static, str>,
+    pub db_password: Cow<'static, str>
 }
 
 impl EnvironmentVariables {
@@ -30,6 +33,10 @@ impl EnvironmentVariables {
                 Ok(proto) => proto.into(),
                 Err(_) => "http".into(),
             },
+            max_request_body_size: match dotenv::var("MAX_REQUEST_BODY_SIZE") {
+                Ok(size) => size.parse()?,
+                Err(_) => 2_097_152, // Default to 2MB
+            },
             db_host: match dotenv::var("DB_HOST") {
                 Ok(host) => host.into(),
                 Err(err) => bail!("Missing DB_HOST: {}", err),
@@ -45,7 +52,9 @@ impl EnvironmentVariables {
             db_password: match dotenv::var("DB_PASSWORD") {
                 Ok(pass) => pass.into(),
                 Err(err) => bail!("Missing DB_PASSWORD: {}", err),
-            },
+            }
         })
     }
 }
+
+// End of file: src/models/env_vars.tf
