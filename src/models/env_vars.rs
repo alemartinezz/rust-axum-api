@@ -1,5 +1,10 @@
 // Start of file: src/models/env_vars.tf
 
+/*
+    * Defines the application's environment variables and provides a method
+    * for loading them from the system (or .env) using dotenv.
+*/
+
 use std::borrow::Cow;
 use anyhow::{bail, Result};
 use dotenv::dotenv;
@@ -16,6 +21,9 @@ pub struct EnvironmentVariables {
     pub db_password: Cow<'static, str>
 }
 
+/*
+    * Load all environment variables or fall back to defaults where specified.
+*/    
 impl EnvironmentVariables {
     pub fn from_env() -> Result<Self> {
         dotenv().ok();
@@ -35,7 +43,7 @@ impl EnvironmentVariables {
             },
             max_request_body_size: match dotenv::var("MAX_REQUEST_BODY_SIZE") {
                 Ok(size) => size.parse()?,
-                Err(_) => 2_097_152, // Default to 2MB
+                Err(_) => 2_097_152, // 2MB default
             },
             db_host: match dotenv::var("DB_HOST") {
                 Ok(host) => host.into(),

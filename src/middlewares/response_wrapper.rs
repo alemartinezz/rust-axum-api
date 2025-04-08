@@ -1,25 +1,30 @@
 // Start of file: /src/middlewares/response_wrapper.rs
 
+/*
+    * This middleware collects the response body, attempts to parse it into JSON,
+    * then wraps it in a universal JSON structure (`ResponseFormat`).
+*/
+use std::{convert::Infallible, time::Instant};
+use serde_json::{
+    from_slice,
+    Value,
+};
 use axum::{
     body::{Body, Bytes},
     http::{Request, Response, StatusCode},
     middleware::Next,
 };
+use tracing::{error, warn};
 use chrono::Utc;
 use http_body_util::BodyExt;
-use serde::Serialize;
-use serde_json::{
-    from_slice,
-    ser::{PrettyFormatter, Serializer},
-    Value,
-};
-use std::{convert::Infallible, time::Instant};
-use tracing::{error, info, warn};
 
 use crate::models::response_format::ResponseFormat;
+use crate::utils::utils::log_json;
 
-/// Converts raw bytes to JSON. If conversion fails or the bytes are empty,
-/// returns `Value::Null`.
+/*
+    * Converts raw bytes to JSON. If conversion fails or the bytes are empty,
+    * returns `Value::Null`.
+*/
 fn body_to_json(raw: &[u8]) -> Value {
     if raw.is_empty() {
         warn!("Response body is empty; defaulting to JSON null");
@@ -32,20 +37,9 @@ fn body_to_json(raw: &[u8]) -> Value {
     }
 }
 
-/// Convert any `Serialize` type into a two space‐indented JSON string.
-fn to_two_space_indented_json<T: Serialize>(value: &T) -> serde_json::Result<String> {
-    let mut writer: Vec<u8> = Vec::new();
-    let formatter: PrettyFormatter<'_> = PrettyFormatter::with_indent(b"  ");
-    let mut ser: Serializer<&mut Vec<u8>, PrettyFormatter<'_>> =
-        Serializer::with_formatter(&mut writer, formatter);
-
-    value.serialize(&mut ser)?;
-
-    Ok(String::from_utf8(writer).expect("should be valid UTF-8"))
-}
-
-/// Extracts the start time from the request extensions.
-/// If it's missing for some reason, defaults to `Instant::now()`.
+/*
+    * Extracts the start time from the request extensions or defaults to now.
+*/
 fn extract_start_time(req: &Request<Body>) -> Instant {
     req.extensions()
         .get::<Instant>()
@@ -53,9 +47,10 @@ fn extract_start_time(req: &Request<Body>) -> Instant {
         .unwrap_or_else(Instant::now)
 }
 
-/// Collects the entire response body into `Bytes`. Returns a tuple
-/// of `(parts, collected_bytes)` on success, or a `Response<Body>`
-/// for immediate error return on failure.
+/*
+    * Collects the entire response body into `Bytes`.
+    * Returns `(parts, collected_bytes)` on success or a `Response<Body>` on failure.
+*/
 async fn collect_response_body(
     response: Response<Body>,
 ) -> Result<(axum::http::response::Parts, Bytes), Response<Body>> {
@@ -79,7 +74,9 @@ async fn collect_response_body(
     }
 }
 
-/// Builds our universal `ResponseFormat`.
+/*
+    * Builds our universal `ResponseFormat` object to standardize response output.
+*/
 fn build_response_format(
     parts: &axum::http::response::Parts,
     parsed_json: Value,
@@ -94,6 +91,7 @@ fn build_response_format(
 
     let mut messages: Vec<String> = vec![];
     
+    // TODO: Extend logic for different statuses if needed.
     if parts.status == StatusCode::REQUEST_TIMEOUT {
         messages.push("The request timed out after 10 seconds.".to_owned());
     }
@@ -111,20 +109,9 @@ fn build_response_format(
     }
 }
 
-/// Logs the `ResponseFormat` in two space‐indented JSON format.
-fn log_response(wrapped: &ResponseFormat) {
-    match to_two_space_indented_json(wrapped) {
-        Ok(spaced_json) => {
-            info!("\nFinal response:\n{}", spaced_json);
-        }
-        Err(err) => {
-            error!("Could not format response as two space‐indented JSON: {err}");
-        }
-    }
-}
-
-/// Constructs the final HTTP response from the given `parts` and
-/// `ResponseFormat`, ensuring a JSON body and appropriate headers.
+/*
+    * Constructs the final HTTP response from the wrapped `ResponseFormat`.
+*/
 fn build_http_response(
     mut parts: axum::http::response::Parts,
     wrapped: &ResponseFormat,
@@ -138,9 +125,12 @@ fn build_http_response(
         }
     };
 
+    // Remove existing CONTENT_LENGTH to avoid mismatch with new body size.
     parts
         .headers
         .remove(axum::http::header::CONTENT_LENGTH);
+
+    // Ensure the correct content type is set.
     parts.headers.insert(
         axum::http::header::CONTENT_TYPE,
         "application/json".parse().unwrap(),
@@ -149,7 +139,9 @@ fn build_http_response(
     Response::from_parts(parts, Body::from(new_body))
 }
 
-/// Middleware that wraps the response in a universal JSON format.
+/*
+    * This middleware wraps each response in a uniform JSON structure.
+*/
 pub async fn response_wrapper(
     req: Request<Body>,
     next: Next,
@@ -160,15 +152,19 @@ pub async fn response_wrapper(
     let (parts, raw_bytes) = match collect_response_body(response).await {
         Ok(ok) => ok,
         Err(err_response) => {
+            // * If collecting failed, we return the error response immediately.
             return Ok(err_response);
         }
     };
 
+    // * Parse body into JSON or Value::Null if invalid.
     let parsed_json: Value = body_to_json(&raw_bytes);
+
+    // * Build the standard response format and log it.
     let wrapped: ResponseFormat = build_response_format(&parts, parsed_json, start_time);
+    log_json(&wrapped);
 
-    log_response(&wrapped);
-
+    // * Convert the `ResponseFormat` back into an HTTP response.
     let final_response: Response<Body> = build_http_response(parts, &wrapped);
 
     Ok(final_response)
