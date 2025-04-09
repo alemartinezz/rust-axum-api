@@ -18,7 +18,7 @@ use crate::models::response_format::StructuredResponse;
 /*
     * We add an instrumentation attribute here for structured logs/traces.
 */
-#[tracing::instrument(fields(backtrace = ?Backtrace::capture()))]
+#[tracing::instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
 pub async fn hello_handler(
     State(_state): State<AppState>,
     _body: Bytes,

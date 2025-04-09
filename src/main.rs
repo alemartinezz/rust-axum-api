@@ -33,8 +33,7 @@ use my_axum_project::middlewares::response_wrapper;
 use my_axum_project::models::state::AppState;
 use my_axum_project::routes::hello_route;
 
-// TODO: 1. Do not display env variables in logging
-// TODO: 2. Make tests
+// TODO: Make tests
 
 /*
     * The Tokio runtime is required for asynchronous I/O and concurrency.
