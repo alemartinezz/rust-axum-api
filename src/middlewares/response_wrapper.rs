@@ -112,11 +112,6 @@ fn build_response_format(
         messages.push(message.clone());
     }
 
-    // If no explicit message, use the status code's default phrase
-    if messages.is_empty() {
-        messages.push(default_message.clone());
-    }
-
     let current_utc_date: String = Utc::now().to_rfc3339();
 
     ResponseFormat {

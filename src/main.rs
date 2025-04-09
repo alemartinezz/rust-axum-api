@@ -40,7 +40,7 @@ use my_axum_project::routes::hello_route;
 async fn main() -> anyhow::Result<()> {
     // Initialize the tracing subscriber with an environment filter.
     let env_filter: EnvFilter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "my-axum-project=debug,tower_http=debug,axum=trace".parse().unwrap());
+        .unwrap_or_else(|_| "my_axum_project=info,tower_http=debug,axum=trace".parse().unwrap());
     
     fmt()
         .with_env_filter(env_filter)
@@ -55,17 +55,17 @@ async fn main() -> anyhow::Result<()> {
         .merge(hello_route::hello_routes())
         .layer(
             ServiceBuilder::new()
-                // Body-size limit to prevent excessive data from large requests.
-                .layer(DefaultBodyLimit::max(state.env.max_request_body_size))
-                
                 // Our custom response_wrapper middleware to unify response format.
                 .layer(from_fn(response_wrapper::response_wrapper))
-                
+
                 // Global error handling for timeouts, body-limit, etc.
                 .layer(HandleErrorLayer::new(handle_global_error))
-                
+
                 // A 5-second timeout for each request.
-                .layer(TimeoutLayer::new(Duration::from_secs(state.env.default_timeout_seconds))),
+                .layer(TimeoutLayer::new(Duration::from_secs(state.env.default_timeout_seconds)))
+        
+                // Body-size limit to prevent excessive data from large requests.
+                .layer(DefaultBodyLimit::max(state.env.max_request_body_size))   
         )
         .with_state(state.clone());
 

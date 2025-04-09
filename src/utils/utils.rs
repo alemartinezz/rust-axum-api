@@ -17,7 +17,8 @@ pub fn log_json(wrapped: &ResponseFormat) {
             info!("\nFinal response:\n{}", spaced_json);
         }
         Err(err) => {
-            error!("Could not format response as two-space-indented JSON: {err}");
+            // Add explicit error logging
+            error!("Failed to format response JSON: {:?}", err);
         }
     }
 }

@@ -9,19 +9,20 @@ use serde_json::{json, Value};
 use axum::{http::StatusCode, Json, extract::State, body::Bytes};
 
 use crate::models::state::AppState;
-use std::time::Duration;
-use tokio::time::sleep;
+use std::backtrace::Backtrace;
+//use std::time::Duration;
+//use tokio::time::sleep;
 
 /*
     * We add an instrumentation attribute here for structured logs/traces.
 */
-#[tracing::instrument]
+#[tracing::instrument(fields(backtrace = ?Backtrace::capture()))]
 pub async fn hello_handler(
     State(_state): State<AppState>,
     // We explicitly receive the body (even for GET) to show how to parse or ignore it.
     _body: Bytes,
 ) -> (StatusCode, Json<Value>) {
-    sleep(Duration::from_secs(10)).await;
+    //sleep(Duration::from_secs(10)).await;
 
     let body: Value = json!({ "message": "Hello from Axummmm!" });
 
