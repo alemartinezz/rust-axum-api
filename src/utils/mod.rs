@@ -5,5 +5,6 @@
 */
 
 pub mod utils;
+pub mod error_handling;
 
 // End of file: /src/utils/mod.rs

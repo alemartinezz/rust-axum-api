@@ -6,24 +6,20 @@
 */
 
 use std::time::Duration;
-use std::error::Error;
 use axum::{
     serve,
     Router,
-    BoxError,
-    http::StatusCode,
     extract::DefaultBodyLimit,
-    response::IntoResponse,
     middleware::from_fn,
     error_handling::HandleErrorLayer,
 };
+use my_axum_project::utils::error_handling::handle_global_error;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower::timeout::TimeoutLayer;
 use tracing_subscriber::{EnvFilter, fmt};
 use listenfd::ListenFd;
-use http_body_util::LengthLimitError;
 
 use my_axum_project::middlewares::{start_time, response_wrapper};
 use my_axum_project::models::state::AppState;
@@ -85,9 +81,6 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    // TODO: Auto reload not working
-    // TODO: Make tests for current global errors
-
     println!("Server listening on: {}", listener.local_addr()?);
     
     // Launch axum's server with graceful shutdown.
@@ -96,46 +89,6 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     Ok(())
-}
-
-async fn handle_global_error(err: BoxError) -> impl IntoResponse {
-    // Check for body length limit errors using our utility function.
-    if let Some(e) = find_cause::<LengthLimitError>(&*err) {
-        return (
-            StatusCode::PAYLOAD_TOO_LARGE,
-            format!("Request body too large: {}", e),
-        );
-    }
-
-    // Check for request timeout errors.
-    if let Some(e) = err.downcast_ref::<tower::timeout::error::Elapsed>() {
-        return (
-            StatusCode::REQUEST_TIMEOUT,
-            format!("Request timeout: {}", e),
-        );
-    }
-
-    // Fallback to generic error.
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        format!("Unhandled internal error: {}", err),
-    )
-}
-
-/*
-    * This helper function loops through error sources to find a specific cause.
-*/
-fn find_cause<T: Error + 'static>(err: &dyn Error) -> Option<&T> {
-    let mut source: Option<&dyn Error> = err.source();
-    
-    while let Some(s) = source {
-        if let Some(typed) = s.downcast_ref::<T>() {
-            return Some(typed);
-        }
-        source = s.source();
-    }
-
-    None
 }
 
 /*
