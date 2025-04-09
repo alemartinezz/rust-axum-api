@@ -11,27 +11,30 @@ use fmt::format::FmtSpan;
 use axum::{
     serve,
     Router,
-    extract::DefaultBodyLimit,
     middleware::from_fn,
+    extract::DefaultBodyLimit,
     error_handling::HandleErrorLayer,
 };
 use tokio::{
-    net::TcpListener,
-    signal
+    signal,
+    net::TcpListener
 };
 use tower::{
     ServiceBuilder,
     timeout::TimeoutLayer
 };
 use tracing_subscriber::{
-    EnvFilter,
-    fmt
+    fmt,
+    EnvFilter
 };
 
 use my_axum_project::utils::error_handling::handle_global_error;
 use my_axum_project::middlewares::response_wrapper;
 use my_axum_project::models::state::AppState;
 use my_axum_project::routes::hello_route;
+
+// TODO: 1. Do not display env variables in logging
+// TODO: 2. Make tests
 
 /*
     * The Tokio runtime is required for asynchronous I/O and concurrency.
@@ -61,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
                 // Global error handling for timeouts, body-limit, etc.
                 .layer(HandleErrorLayer::new(handle_global_error))
 
-                // A 5-second timeout for each request.
+                // A default timeout for each request.
                 .layer(TimeoutLayer::new(Duration::from_secs(state.env.default_timeout_seconds)))
         
                 // Body-size limit to prevent excessive data from large requests.

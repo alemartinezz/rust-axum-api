@@ -1,6 +1,6 @@
 # Hola
 
-Example `.env`
+### Example `.env`
 
 ```bash
 # Application Environment Settings
@@ -23,4 +23,9 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=postgres
+```
+
+### Run in auto reload
+```bash
+systemfd --no-pid -s http::3000 -- cargo watch -x run
 ```
