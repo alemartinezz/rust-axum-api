@@ -27,11 +27,10 @@ use axum::{
 };
 use std::convert::Infallible;
 use http_body_util::BodyExt;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 use chrono::Utc;
 
 use crate::models::response_format::ResponseFormat;
-use crate::utils::utils::log_json;
 
 /*
     * Converts raw bytes to JSON. If content type isn't JSON, treats body as text.
@@ -155,6 +154,8 @@ fn build_http_response(
 /*
     * This middleware wraps each response in a uniform JSON structure.
 */
+// In /src/middlewares/response_wrapper.rs
+
 pub async fn response_wrapper(
     req: Request<Body>,
     next: Next,
@@ -169,9 +170,18 @@ pub async fn response_wrapper(
     // Parse body considering content type
     let parsed_json: Value = body_to_json(&raw_bytes, &parts.headers);
 
-    // Build and log response
+    // Build response
     let wrapped: ResponseFormat = build_response_format(&parts, parsed_json);
-    log_json(&wrapped);
+    
+    // Format and log directly here
+    match crate::utils::utils::to_two_space_indented_json(&wrapped) {
+        Ok(spaced_json) => {
+            info!("\nFinal response:\n{}", spaced_json);
+        }
+        Err(err) => {
+            error!("Failed to format response JSON: {:?}", err);
+        }
+    }
 
     Ok(build_http_response(parts, &wrapped))
 }
