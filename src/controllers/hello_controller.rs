@@ -9,7 +9,9 @@ use serde_json::{json, Value};
 use axum::{http::StatusCode, Json, extract::State, body::Bytes};
 
 use crate::models::state::AppState;
- 
+// use std::time::Duration;
+// use tokio::time::sleep;
+
 /*
     * We add an instrumentation attribute here for structured logs/traces.
 */
@@ -19,6 +21,8 @@ pub async fn hello_handler(
     // We explicitly receive the body (even for GET) to show how to parse or ignore it.
     _body: Bytes,
 ) -> (StatusCode, Json<Value>) {
+    // sleep(Duration::from_secs(10)).await;
+
     let body: Value = json!({ "message": "Hello from Axummmm!" });
 
     // Return a tuple (StatusCode, Json), which axum interprets as an HTTP response.

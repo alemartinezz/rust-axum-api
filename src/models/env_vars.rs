@@ -6,15 +6,19 @@
 */
 
 use std::borrow::Cow;
-use anyhow::{bail, Result};
+use anyhow::Result;
 use dotenv::dotenv;
+// Replace log import with tracing:
+use tracing::warn;
 
 #[derive(Clone, Debug)]
 pub struct EnvironmentVariables {
+    pub environment: Cow<'static, str>,
     pub host: Cow<'static, str>,
     pub port: u16,
     pub protocol: Cow<'static, str>,
     pub max_request_body_size: usize,
+    pub default_timeout_seconds: u64,
     pub db_host: Cow<'static, str>,
     pub db_port: u16,
     pub db_user: Cow<'static, str>,
@@ -29,6 +33,13 @@ impl EnvironmentVariables {
         dotenv().ok();
 
         Ok(Self {
+            environment: match dotenv::var("ENVIRONMENT") {
+                Ok(env) => env.into(),
+                Err(_) => {
+                    warn!("Missing ENVIRONMENT, defaulting to 'development'");
+                    "development".into()
+                }
+            },
             host: match dotenv::var("HOST") {
                 Ok(host) => host.into(),
                 Err(_) => "127.0.0.1".into(),
@@ -45,9 +56,16 @@ impl EnvironmentVariables {
                 Ok(size) => size.parse()?,
                 Err(_) => 2_097_152, // 2MB default
             },
+            default_timeout_seconds: match dotenv::var("DEFAULT_TIMEOUT_SECONDS") {
+                Ok(seconds) => seconds.parse()?,
+                Err(_) => 3, // 3 seconds default
+            },
             db_host: match dotenv::var("DB_HOST") {
                 Ok(host) => host.into(),
-                Err(err) => bail!("Missing DB_HOST: {}", err),
+                Err(_) => {
+                    warn!("Missing DB_HOST, defaulting to 'localhost'");
+                    "localhost".into()
+                }
             },
             db_port: match dotenv::var("DB_PORT") {
                 Ok(port) => port.parse()?,
@@ -55,11 +73,17 @@ impl EnvironmentVariables {
             },
             db_user: match dotenv::var("DB_USER") {
                 Ok(user) => user.into(),
-                Err(err) => bail!("Missing DB_USER: {}", err),
+                Err(_) => {
+                    warn!("Missing DB_USER, defaulting to 'postgres'");
+                    "postgres".into()
+                }
             },
             db_password: match dotenv::var("DB_PASSWORD") {
                 Ok(pass) => pass.into(),
-                Err(err) => bail!("Missing DB_PASSWORD: {}", err),
+                Err(_) => {
+                    warn!("Missing DB_PASSWORD, defaulting to 'postgres'");
+                    "postgres".into()
+                }
             }
         })
     }

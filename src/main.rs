@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
                 .layer(HandleErrorLayer::new(handle_global_error))
                 
                 // A 5-second timeout for each request.
-                .layer(TimeoutLayer::new(Duration::from_secs(5))),
+                .layer(TimeoutLayer::new(Duration::from_secs(state.env.default_timeout_seconds))),
         )
         .with_state(state.clone());
 
@@ -84,6 +84,9 @@ async fn main() -> anyhow::Result<()> {
             TcpListener::bind(&addr).await?
         }
     };
+
+    // TODO: Auto reload not working
+    // TODO: Make tests for current global errors
 
     println!("Server listening on: {}", listener.local_addr()?);
     

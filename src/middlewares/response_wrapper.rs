@@ -11,7 +11,7 @@ use serde_json::{
 };
 use axum::{
     body::{Body, Bytes},
-    http::{Request, Response, StatusCode},
+    http::{Request, Response, StatusCode, HeaderMap},
     middleware::Next,
 };
 use tracing::{error, warn};
@@ -22,18 +22,33 @@ use crate::models::response_format::ResponseFormat;
 use crate::utils::utils::log_json;
 
 /*
-    * Converts raw bytes to JSON. If conversion fails or the bytes are empty,
-    * returns `Value::Null`.
+    * Converts raw bytes to JSON. If content type isn't JSON, treats body as text.
 */
-fn body_to_json(raw: &[u8]) -> Value {
+fn body_to_json(raw: &[u8], headers: &HeaderMap) -> Value {
+    // Check if response claims to be JSON
+    let is_json: bool = headers
+        .get(axum::http::header::CONTENT_TYPE)
+        .map(|ct| ct.to_str().unwrap_or("").starts_with("application/json"))
+        .unwrap_or(false);
+
     if raw.is_empty() {
         warn!("Response body is empty; defaulting to JSON null");
         Value::Null
-    } else {
-        from_slice(raw).unwrap_or_else(|err: serde_json::Error| {
-            warn!("Failed to parse response body as JSON: {err}");
+    } else if is_json {
+        // Attempt JSON parse for declared JSON content
+        from_slice(raw).unwrap_or_else(|err| {
+            warn!("Failed to parse JSON body: {err}");
             Value::Null
         })
+    } else {
+        // Treat as text if possible
+        match std::str::from_utf8(raw) {
+            Ok(text) => Value::String(text.to_owned()),
+            Err(_) => {
+                warn!("Response body is not valid UTF-8; defaulting to null");
+                Value::Null
+            }
+        }
     }
 }
 
@@ -91,9 +106,9 @@ fn build_response_format(
 
     let mut messages: Vec<String> = vec![];
     
-    // TODO: Extend logic for different statuses if needed.
-    if parts.status == StatusCode::REQUEST_TIMEOUT {
-        messages.push("The request timed out after 10 seconds.".to_owned());
+    // Capture plain text errors into messages
+    if let Value::String(message) = &parsed_json {
+        messages.push(message.clone());
     }
 
     let duration_ms: u128 = start_time.elapsed().as_millis();
@@ -102,7 +117,11 @@ fn build_response_format(
     ResponseFormat {
         status: reason,
         code: parts.status.as_u16(),
-        data: parsed_json,
+        data: if parsed_json.is_string() {
+            Value::Null // Move text messages to 'messages' field
+        } else {
+            parsed_json
+        },
         messages,
         time: format!("{} ms", duration_ms),
         date: current_utc_date,
@@ -125,12 +144,7 @@ fn build_http_response(
         }
     };
 
-    // Remove existing CONTENT_LENGTH to avoid mismatch with new body size.
-    parts
-        .headers
-        .remove(axum::http::header::CONTENT_LENGTH);
-
-    // Ensure the correct content type is set.
+    parts.headers.remove(axum::http::header::CONTENT_LENGTH);
     parts.headers.insert(
         axum::http::header::CONTENT_TYPE,
         "application/json".parse().unwrap(),
@@ -151,23 +165,17 @@ pub async fn response_wrapper(
 
     let (parts, raw_bytes) = match collect_response_body(response).await {
         Ok(ok) => ok,
-        Err(err_response) => {
-            // * If collecting failed, we return the error response immediately.
-            return Ok(err_response);
-        }
+        Err(err_response) => return Ok(err_response),
     };
 
-    // * Parse body into JSON or Value::Null if invalid.
-    let parsed_json: Value = body_to_json(&raw_bytes);
+    // Parse body considering content type
+    let parsed_json: Value = body_to_json(&raw_bytes, &parts.headers);
 
-    // * Build the standard response format and log it.
+    // Build and log response
     let wrapped: ResponseFormat = build_response_format(&parts, parsed_json, start_time);
     log_json(&wrapped);
 
-    // * Convert the `ResponseFormat` back into an HTTP response.
-    let final_response: Response<Body> = build_http_response(parts, &wrapped);
-
-    Ok(final_response)
+    Ok(build_http_response(parts, &wrapped))
 }
 
 // End of file: /src/middlewares/response_wrapper.rs
