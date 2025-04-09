@@ -8,7 +8,6 @@
 use std::borrow::Cow;
 use anyhow::Result;
 use dotenv::dotenv;
-// Replace log import with tracing:
 use tracing::warn;
 
 #[derive(Clone, Debug)]

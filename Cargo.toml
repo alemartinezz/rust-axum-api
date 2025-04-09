@@ -22,9 +22,6 @@ serde_json = "1.0"
 # * Tower is used for layering services (timeouts, error handling, etc.)
 tower = { version = "0.5.2", features = ["util", "timeout"] }
 
-# * tower-http provides additional middleware, though we only use "trace" here
-tower-http = { version = "0.6.2", features = ["trace"] }
-
 # * For collecting axum::body::Body into Bytes
 http-body-util = "0.1.3"
 

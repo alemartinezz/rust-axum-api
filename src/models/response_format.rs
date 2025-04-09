@@ -18,8 +18,6 @@ pub struct ResponseFormat {
     pub data: Value,
     // A list of optional messages (e.g., warnings, errors).
     pub messages: Vec<String>,
-    // The time (e.g., "50 ms") that the request took to process.
-    pub time: String,
     // The UTC date/time (RFC3339) when the server responded.
     pub date: String,
 }

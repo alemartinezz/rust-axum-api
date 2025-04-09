@@ -6,6 +6,8 @@
 */
 
 use std::time::Duration;
+use listenfd::ListenFd;
+use fmt::format::FmtSpan;
 use axum::{
     serve,
     Router,
@@ -13,15 +15,21 @@ use axum::{
     middleware::from_fn,
     error_handling::HandleErrorLayer,
 };
-use my_axum_project::utils::error_handling::handle_global_error;
-use tokio::net::TcpListener;
-use tokio::signal;
-use tower::ServiceBuilder;
-use tower::timeout::TimeoutLayer;
-use tracing_subscriber::{EnvFilter, fmt};
-use listenfd::ListenFd;
+use tokio::{
+    net::TcpListener,
+    signal
+};
+use tower::{
+    ServiceBuilder,
+    timeout::TimeoutLayer
+};
+use tracing_subscriber::{
+    EnvFilter,
+    fmt
+};
 
-use my_axum_project::middlewares::{start_time, response_wrapper};
+use my_axum_project::utils::error_handling::handle_global_error;
+use my_axum_project::middlewares::response_wrapper;
 use my_axum_project::models::state::AppState;
 use my_axum_project::routes::hello_route;
 
@@ -36,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
     
     fmt()
         .with_env_filter(env_filter)
-        .with_span_events(fmt::format::FmtSpan::FULL)
+        .with_span_events(FmtSpan::FULL)
         .init();
 
     // Build application state from environment variables.
@@ -49,9 +57,6 @@ async fn main() -> anyhow::Result<()> {
             ServiceBuilder::new()
                 // Body-size limit to prevent excessive data from large requests.
                 .layer(DefaultBodyLimit::max(state.env.max_request_body_size))
-                
-                // Our custom start_time middleware to track request durations.
-                .layer(from_fn(start_time::start_time_middleware))
                 
                 // Our custom response_wrapper middleware to unify response format.
                 .layer(from_fn(response_wrapper::response_wrapper))

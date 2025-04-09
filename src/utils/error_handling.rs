@@ -5,35 +5,23 @@ use axum::{
     response::IntoResponse,
     BoxError,
 };
-use http_body_util::LengthLimitError;
 use std::error::Error;
 use tower::timeout::error::Elapsed;
+use http_body_util::LengthLimitError;
 
 /*
     * Global error handler for middleware layers
 */
 pub async fn handle_global_error(err: BoxError) -> impl IntoResponse {
-    // Check for body length limit errors using our utility function.
-    if let Some(e) = find_cause::<LengthLimitError>(&*err) {
-        return (
-            StatusCode::PAYLOAD_TOO_LARGE,
-            format!("Request body too large: {}", e),
-        );
+    if find_cause::<LengthLimitError>(&*err).is_some() {
+        return StatusCode::PAYLOAD_TOO_LARGE;
     }
 
-    // Check for request timeout errors.
-    if let Some(e) = err.downcast_ref::<Elapsed>() {
-        return (
-            StatusCode::REQUEST_TIMEOUT,
-            format!("Request timeout: {}", e),
-        );
+    if err.is::<Elapsed>() {
+        return StatusCode::REQUEST_TIMEOUT;
     }
 
-    // Fallback to generic error.
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        format!("Unhandled internal error: {}", err),
-    )
+    StatusCode::INTERNAL_SERVER_ERROR
 }
 
 /*

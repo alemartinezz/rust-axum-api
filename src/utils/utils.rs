@@ -1,9 +1,9 @@
 // Start of file: src/utils/utils.rs
 
-use serde::Serialize;
 use serde_json::{
     ser::PrettyFormatter, Serializer
 };
+use serde::Serialize;
 use tracing::{error, info};
 
 use crate::models::response_format::ResponseFormat;
