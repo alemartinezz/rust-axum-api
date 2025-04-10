@@ -4,7 +4,7 @@
     * Defines the application's environment variables and provides a method
     * for loading them from the system (or .env) using dotenv.
 */
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 use anyhow::Result;
 use dotenv::dotenv;
 use tracing::warn;
@@ -20,66 +20,69 @@ pub struct EnvironmentVariables {
     pub db_host: Cow<'static, str>,
     pub db_port: u16,
     pub db_user: Cow<'static, str>,
-    pub db_password: Cow<'static, str>
+    pub db_password: Cow<'static, str>,
 }
 
 impl EnvironmentVariables {
     pub fn from_env() -> Result<Self> {
         dotenv().ok();
+        let vars: HashMap<String, String> = dotenv::vars().collect();
+        
+        let get_var = |key: &str| vars.get(key).map(|s| s.as_str());
 
         Ok(Self {
-            environment: match dotenv::var("ENVIRONMENT") {
-                Ok(env) => env.into(),
-                Err(_) => {
+            environment: match get_var("ENVIRONMENT") {
+                Some(env) => Cow::from(env.to_owned()),
+                None => {
                     warn!("Missing ENVIRONMENT, defaulting to 'development'");
-                    "development".into()
+                    Cow::Borrowed("development")
                 }
             },
-            host: match dotenv::var("HOST") {
-                Ok(host) => host.into(),
-                Err(_) => "127.0.0.1".into(),
+            host: match get_var("HOST") {
+                Some(host) => Cow::from(host.to_owned()),
+                None => Cow::Borrowed("127.0.0.1"),
             },
-            port: match dotenv::var("PORT") {
-                Ok(port) => port.parse()?,
-                Err(_) => 3000,
+            port: match get_var("PORT") {
+                Some(port) => port.parse()?,
+                None => 3000,
             },
-            protocol: match dotenv::var("PROTOCOL") {
-                Ok(proto) => proto.into(),
-                Err(_) => "http".into(),
+            protocol: match get_var("PROTOCOL") {
+                Some(proto) => Cow::from(proto.to_owned()),
+                None => Cow::Borrowed("http"),
             },
-            max_request_body_size: match dotenv::var("MAX_REQUEST_BODY_SIZE") {
-                Ok(size) => size.parse()?,
-                Err(_) => 2_097_152, // 2MB default
+            max_request_body_size: match get_var("MAX_REQUEST_BODY_SIZE") {
+                Some(size) => size.parse()?,
+                None => 2_097_152,
             },
-            default_timeout_seconds: match dotenv::var("DEFAULT_TIMEOUT_SECONDS") {
-                Ok(seconds) => seconds.parse()?,
-                Err(_) => 3, // 3 seconds default
+            default_timeout_seconds: match get_var("DEFAULT_TIMEOUT_SECONDS") {
+                Some(seconds) => seconds.parse()?,
+                None => 3,
             },
-            db_host: match dotenv::var("DB_HOST") {
-                Ok(host) => host.into(),
-                Err(_) => {
+            db_host: match get_var("DB_HOST") {
+                Some(host) => Cow::from(host.to_owned()),
+                None => {
                     warn!("Missing DB_HOST, defaulting to 'localhost'");
-                    "localhost".into()
+                    Cow::Borrowed("localhost")
                 }
             },
-            db_port: match dotenv::var("DB_PORT") {
-                Ok(port) => port.parse()?,
-                Err(_) => 5432,
+            db_port: match get_var("DB_PORT") {
+                Some(port) => port.parse()?,
+                None => 5432,
             },
-            db_user: match dotenv::var("DB_USER") {
-                Ok(user) => user.into(),
-                Err(_) => {
+            db_user: match get_var("DB_USER") {
+                Some(user) => Cow::from(user.to_owned()),
+                None => {
                     warn!("Missing DB_USER, defaulting to 'postgres'");
-                    "postgres".into()
+                    Cow::Borrowed("postgres")
                 }
             },
-            db_password: match dotenv::var("DB_PASSWORD") {
-                Ok(pass) => pass.into(),
-                Err(_) => {
+            db_password: match get_var("DB_PASSWORD") {
+                Some(pass) => Cow::from(pass.to_owned()),
+                None => {
                     warn!("Missing DB_PASSWORD, defaulting to 'postgres'");
-                    "postgres".into()
+                    Cow::Borrowed("postgres")
                 }
-            }
+            },
         })
     }
 }

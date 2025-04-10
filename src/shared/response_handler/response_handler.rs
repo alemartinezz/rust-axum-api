@@ -9,9 +9,8 @@
 use axum::{
     body::Body,
     http::{
-        Request, Response, Extensions,
-        response::Parts, header::CONTENT_TYPE,
-        StatusCode
+        header::CONTENT_TYPE, Request, Response, 
+        response::Parts, StatusCode, Extensions
     },
     Json,
     middleware::Next,
@@ -28,37 +27,32 @@ use crate::shared::utils::to_two_space_indented_json;
    RESPONSE FORMAT & STRUCTURES
    ------------------------------------------------------------------------ */
 
-#[derive(Serialize, Deserialize)]
-pub struct ResponseFormat {
-    // The textual representation of HTTP status (e.g., "OK", "NOT_FOUND").
-    pub status: String,
-    // The numeric HTTP status code (e.g., 200, 404).
-    pub code: u16,
-    // The actual data payload in JSON form.
-    pub data: Value,
-    // A list of optional messages (e.g., warnings, errors).
-    pub messages: Vec<String>,
-    // The UTC date/time (RFC3339) when the server responded.
-    pub date: String,
-}
+    #[derive(Serialize, Deserialize)]
+    pub struct ResponseFormat {
+        pub status: String,
+        pub code: u16,
+        pub data: serde_json::Value,
+        pub messages: Vec<String>,
+        pub date: String,
+    }
+   
+    #[derive(Debug, Clone)]
+    pub struct HandlerResponse {
+        pub status_code: StatusCode,
+        pub data: serde_json::Value,
+        pub messages: Vec<String>,
+    }
 
-#[derive(Debug, Clone)]
-pub struct HandlerResponse {
-    pub status_code: StatusCode,
-    pub data: Value,
-    pub messages: Vec<String>,
-}
-
-impl HandlerResponse {
+   impl HandlerResponse {
     pub fn new(status_code: StatusCode) -> Self {
         Self {
             status_code,
-            data: Value::Null,
+            data: serde_json::Value::Null,
             messages: Vec::new(),
         }
     }
 
-    pub fn data(mut self, data: Value) -> Self {
+    pub fn data(mut self, data: serde_json::Value) -> Self {
         self.data = data;
         self
     }
@@ -71,13 +65,11 @@ impl HandlerResponse {
 
 impl IntoResponse for HandlerResponse {
     fn into_response(self) -> axum::response::Response {
-        // Store messages in the response extensions
-        let mut response: Response<Body> = Json(json!({
+        let mut response = Json(json!({
             "data": self.data,
             "messages": self.messages
-        }))
-        .into_response();
-
+        })).into_response();
+        
         response.extensions_mut().insert(self);
         response
     }

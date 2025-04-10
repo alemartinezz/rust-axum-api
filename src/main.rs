@@ -7,7 +7,7 @@
 
 use std::time::Duration;
 use listenfd::ListenFd;
-use fmt::format::FmtSpan;
+use tracing_subscriber::fmt::format::FmtSpan;
 use axum::{
     serve,
     Router,
@@ -48,9 +48,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Build application state from environment variables.
     let state: AppState = AppState::from_env()?;
+    
+    // Extract necessary values before moving state
+    let host: std::borrow::Cow<'_, str> = state.env.host.clone();
+    let port: u16 = state.env.port;
 
-    // Construct our main application router with routes and layered middleware.
-    let app: Router = Router::<AppState>::new()
+    let app: Router = Router::new()
         .merge(hello_routes())
         .layer(
             ServiceBuilder::new()
@@ -66,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
                 // Body-size limit to prevent excessive data from large requests.
                 .layer(DefaultBodyLimit::max(state.env.max_request_body_size))
         )
-        .with_state(state.clone());
+        .with_state(state);
 
     // Listenfd allows the server to receive an already-bound socket in certain environments.
     let mut listenfd: ListenFd = ListenFd::from_env();
@@ -77,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
             TcpListener::from_std(std_listener)?
         }
         None => {
-            let addr: String = format!("{}:{}", state.env.host, state.env.port);
+            let addr: String = format!("{}:{}", host, port);
             TcpListener::bind(&addr).await?
         }
     };
@@ -97,27 +100,23 @@ async fn main() -> anyhow::Result<()> {
 */
 async fn shutdown_signal() {
     let ctrl_c = async {
-        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+        signal::ctrl_c().await.expect("Ctrl+C handler");
     };
 
     #[cfg(unix)]
     let terminate = async {
         signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
+            .expect("Terminate signal handler")
             .recv()
             .await;
     };
 
     #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>(); // no-op on non-unix
+    let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => {
-            tracing::info!("Received Ctrl+C, shutting down gracefully");
-        },
-        _ = terminate => {
-            tracing::info!("Received terminate signal, shutting down gracefully");
-        },
+        _ = ctrl_c => tracing::info!("Shutting down via Ctrl+C"),
+        _ = terminate => tracing::info!("Shutting down via TERM signal"),
     }
 }
 

@@ -5,9 +5,9 @@
 */
 
 use axum::{
+    BoxError,
     http::StatusCode,
     response::IntoResponse,
-    BoxError,
 };
 use std::error::Error;
 use tower::timeout::error::Elapsed;

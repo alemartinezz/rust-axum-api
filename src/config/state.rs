@@ -5,17 +5,20 @@
     * (controllers) and middleware, allowing them to access shared resources.
 */
 
+use std::sync::Arc;
 use crate::config::environment::EnvironmentVariables;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct AppState {
-    pub env: EnvironmentVariables,
+    pub env: Arc<EnvironmentVariables>,
 }
 
 impl AppState {
     pub fn from_env() -> anyhow::Result<Self> {
         let env: EnvironmentVariables = EnvironmentVariables::from_env()?;
-        Ok(Self { env })
+        Ok(Self {
+            env: Arc::new(env),
+        })
     }
 }
 
