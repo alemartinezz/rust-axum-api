@@ -1,4 +1,8 @@
-// Start of file: src/utils/error_handling.rs
+// Start of file: /src/shared/error_handler/error_handler.rs
+
+/*
+    * Global error handler for middleware layers
+*/
 
 use axum::{
     http::StatusCode,
@@ -9,9 +13,6 @@ use std::error::Error;
 use tower::timeout::error::Elapsed;
 use http_body_util::LengthLimitError;
 
-/*
-    * Global error handler for middleware layers
-*/
 pub async fn handle_global_error(err: BoxError) -> impl IntoResponse {
     if find_cause::<LengthLimitError>(&*err).is_some() {
         return StatusCode::PAYLOAD_TOO_LARGE;
@@ -40,4 +41,4 @@ pub fn find_cause<T: Error + 'static>(err: &dyn Error) -> Option<&T> {
     None
 }
 
-// End of file: src/utils/error_handling.rs
+// End of file: /src/shared/error_handler/error_handler.rs

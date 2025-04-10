@@ -1,4 +1,8 @@
-// Start of file: src/utils/utils.rs
+// Start of file: /src/shared/utils/mod.rs
+
+/*
+    * The utils module organizes useful functions, used by other modules.
+*/
 
 use serde_json::{
     ser::PrettyFormatter, Serializer
@@ -12,12 +16,10 @@ pub fn to_two_space_indented_json<T: Serialize>(value: &T) -> serde_json::Result
     let mut writer: Vec<u8> = Vec::new();
 
     let formatter: PrettyFormatter<'_> = PrettyFormatter::with_indent(b"  ");
-    
     let mut ser: Serializer<&mut Vec<u8>, PrettyFormatter<'_>> = Serializer::with_formatter(&mut writer, formatter);
 
     value.serialize(&mut ser)?;
-
     Ok(String::from_utf8(writer).expect("Should always be valid UTF-8"))
 }
 
-// End of file: src/utils/utils.rs
+// End of file: /src/shared/utils/mod.rs

@@ -1,4 +1,4 @@
-// Start of file: src/main.tf
+// Start of file: /src/main.rs
 
 /*
     * The main entry point for the application. Initializes logging,
@@ -28,17 +28,14 @@ use tracing_subscriber::{
     EnvFilter
 };
 
-use my_axum_project::utils::error_handling::handle_global_error;
-use my_axum_project::middlewares::response_wrapper;
-use my_axum_project::models::state::AppState;
-use my_axum_project::routes::hello_route;
+use my_axum_project::config::state::AppState;
+use my_axum_project::features::hello::routes::hello_routes;
+use my_axum_project::shared::{
+    error_handler::handle_global_error,
+    response_handler::response_wrapper
+};
 
-// TODO: Make tests
-
-/*
-    * The Tokio runtime is required for asynchronous I/O and concurrency.
-*/
-#[tokio::main]
+#[tokio::main] // <-- needed to launch an async runtime
 async fn main() -> anyhow::Result<()> {
     // Initialize the tracing subscriber with an environment filter.
     let env_filter: EnvFilter = EnvFilter::try_from_default_env()
@@ -54,20 +51,20 @@ async fn main() -> anyhow::Result<()> {
 
     // Construct our main application router with routes and layered middleware.
     let app: Router = Router::<AppState>::new()
-        .merge(hello_route::hello_routes())
+        .merge(hello_routes())
         .layer(
             ServiceBuilder::new()
                 // Our custom response_wrapper middleware to unify response format.
-                .layer(from_fn(response_wrapper::response_wrapper))
-
+                .layer(from_fn(response_wrapper))
+                
                 // Global error handling for timeouts, body-limit, etc.
                 .layer(HandleErrorLayer::new(handle_global_error))
-
+                
                 // A default timeout for each request.
                 .layer(TimeoutLayer::new(Duration::from_secs(state.env.default_timeout_seconds)))
-        
+                
                 // Body-size limit to prevent excessive data from large requests.
-                .layer(DefaultBodyLimit::max(state.env.max_request_body_size))   
+                .layer(DefaultBodyLimit::max(state.env.max_request_body_size))
         )
         .with_state(state.clone());
 
@@ -77,19 +74,16 @@ async fn main() -> anyhow::Result<()> {
     let listener: TcpListener = match listenfd.take_tcp_listener(0)? {
         Some(std_listener) => {
             std_listener.set_nonblocking(true)?;
-            
             TcpListener::from_std(std_listener)?
         }
         None => {
             let addr: String = format!("{}:{}", state.env.host, state.env.port);
-            
-            // Bind to the specified host and port from the environment.
             TcpListener::bind(&addr).await?
         }
     };
 
     println!("Server listening on: {}", listener.local_addr()?);
-    
+
     // Launch axum's server with graceful shutdown.
     serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
@@ -115,7 +109,7 @@ async fn shutdown_signal() {
     };
 
     #[cfg(not(unix))]
-    let terminate: std::future::Pending<()> = std::future::pending::<()>();
+    let terminate = std::future::pending::<()>(); // no-op on non-unix
 
     tokio::select! {
         _ = ctrl_c => {
@@ -127,4 +121,4 @@ async fn shutdown_signal() {
     }
 }
 
-// End of file: src/main.tf
+// End of file: /src/main.rs
