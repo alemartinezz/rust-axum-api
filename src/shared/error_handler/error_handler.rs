@@ -13,20 +13,20 @@ use tower::timeout::error::Elapsed;
 // * Axum uses http_body_util for length-limiting
 use http_body_util::LengthLimitError;
 
+use crate::shared::response_handler::HandlerResponse;
+
 // ? This is the main function that maps errors to HTTP responses
 pub async fn handle_global_error(err: BoxError) -> impl IntoResponse {
-    // ! 413 if the body was too large
-    if find_cause::<LengthLimitError>(&*err).is_some() {
-        return StatusCode::PAYLOAD_TOO_LARGE;
-    }
+    // Decide the final status code
+    let status: StatusCode = if find_cause::<LengthLimitError>(&*err).is_some() {
+        StatusCode::PAYLOAD_TOO_LARGE
+    } else if err.is::<Elapsed>() {
+        StatusCode::REQUEST_TIMEOUT
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR
+    };
 
-    // ! 408 if the request took too long
-    if err.is::<Elapsed>() {
-        return StatusCode::REQUEST_TIMEOUT;
-    }
-
-    // ! Otherwise, 500
-    StatusCode::INTERNAL_SERVER_ERROR
+    HandlerResponse::new(status)
 }
 
 // * A small helper function to find a specific cause in a chain of errors

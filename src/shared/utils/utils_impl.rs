@@ -12,7 +12,9 @@ pub fn to_two_space_indented_json<T: Serialize>(value: &T) -> serde_json::Result
     let mut writer: Vec<u8> = Vec::new();
 
     let formatter: PrettyFormatter<'_> = PrettyFormatter::with_indent(b"  ");
-    let mut ser: Serializer<&mut Vec<u8>, PrettyFormatter<'_>> = Serializer::with_formatter(&mut writer, formatter);
+    
+    let mut ser: Serializer<&mut Vec<u8>,
+        PrettyFormatter<'_>> = Serializer::with_formatter(&mut writer, formatter);
 
     value.serialize(&mut ser)?;
     

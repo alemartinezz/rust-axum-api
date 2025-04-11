@@ -70,14 +70,16 @@ impl HandlerResponse {
 // * Converting HandlerResponse into an Axum-compatible response
 impl IntoResponse for HandlerResponse {
     fn into_response(self) -> axum::response::Response {
-        // * First, create a simple JSON object with data & messages
+        // Create a JSON response with data and messages
         let mut response: Response<Body> = Json(json!({
             "data": self.data,
             "messages": self.messages
         })).into_response();
         
-        // ? Insert the actual HandlerResponse into the response extensions
-        // ? so the middleware can read it
+        // Set the HTTP status code from the HandlerResponse's status_code
+        *response.status_mut() = self.status_code;
+        
+        // Insert the HandlerResponse into extensions for the middleware
         response.extensions_mut().insert(self);
         response
     }

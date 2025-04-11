@@ -45,3 +45,7 @@ dotenv = "0.15"
 anyhow = "1.0"
 
 once_cell = "1.18.0"
+
+# Tests
+reqwest = "0.12.15"
+tower-http = {version = "0.6.2", features = ["catch-panic"]}

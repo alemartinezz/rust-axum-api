@@ -9,5 +9,4 @@ pub mod error_handler;
 pub mod response_handler;
 pub mod utils;
 
-
 // End of file: /src/shared/mod.rs
