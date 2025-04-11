@@ -18,7 +18,7 @@ pub async fn hello_handler(
     _body: Bytes,        // * This forces Axum to read the body, also triggers body-size limits
 ) -> HandlerResponse {
     // ! Example: You could simulate a delay if desired to check the timeout middleware
-    // tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     // * Return a success status with optional data + message
     HandlerResponse::new(StatusCode::OK)
