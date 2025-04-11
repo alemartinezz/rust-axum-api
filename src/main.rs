@@ -1,9 +1,7 @@
 // Start of file: /src/main.rs
 
-/*
-    * The main entry point for the application. Initializes logging,
-    * sets up the server with routes and middleware, and handles graceful shutdown.
-*/
+// * /src/main.rs
+// * The main entry point. Initializes tracing, environment, sets up routes, and runs the server.
 
 use std::time::Duration;
 use listenfd::ListenFd;
@@ -29,15 +27,16 @@ use tracing_subscriber::{
 };
 
 use my_axum_project::config::state::AppState;
+use my_axum_project::config::environment::EnvironmentVariables;
 use my_axum_project::features::hello::routes::hello_routes;
 use my_axum_project::shared::{
     error_handler::handle_global_error,
     response_handler::response_wrapper
 };
 
-#[tokio::main] // <-- needed to launch an async runtime
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize the tracing subscriber with an environment filter.
+    // * Initialize the tracing subscriber
     let env_filter: EnvFilter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "my_axum_project=info,tower_http=debug,axum=trace".parse().unwrap());
     
@@ -46,48 +45,50 @@ async fn main() -> anyhow::Result<()> {
         .with_span_events(FmtSpan::FULL)
         .init();
 
-    // Build application state from environment variables.
-    let state: AppState = AppState::from_env()?;
+    // * Initialize environment variables
+    let _ = EnvironmentVariables::instance();
     
-    // Extract necessary values before moving state
-    let host: std::borrow::Cow<'_, str> = state.env.host.clone();
-    let port: u16 = state.env.port;
+    // * Create the application state
+    let state: AppState = AppState::new();
+    
+    // * For convenience, get a reference to the environment
+    let env: &EnvironmentVariables = EnvironmentVariables::instance();
 
+    // * Build the router:
+    // ? 1) Merges the /hello routes
+    // ? 2) Attaches the response_wrapper middleware to unify JSON response
+    // ? 3) Attaches a global error handler layer
+    // ? 4) Sets a timeout layer
+    // ? 5) Sets a max body-size limit
     let app: Router = Router::new()
         .merge(hello_routes())
         .layer(
             ServiceBuilder::new()
-                // Our custom response_wrapper middleware to unify response format.
                 .layer(from_fn(response_wrapper))
-                
-                // Global error handling for timeouts, body-limit, etc.
                 .layer(HandleErrorLayer::new(handle_global_error))
-                
-                // A default timeout for each request.
-                .layer(TimeoutLayer::new(Duration::from_secs(state.env.default_timeout_seconds)))
-                
-                // Body-size limit to prevent excessive data from large requests.
-                .layer(DefaultBodyLimit::max(state.env.max_request_body_size))
+                .layer(TimeoutLayer::new(Duration::from_secs(env.default_timeout_seconds)))
+                .layer(DefaultBodyLimit::max(env.max_request_body_size))
         )
         .with_state(state);
 
-    // Listenfd allows the server to receive an already-bound socket in certain environments.
+    // * Try to reuse an existing socket (via ListenFd),
+    // * or bind a new listener if none is provided
     let mut listenfd: ListenFd = ListenFd::from_env();
-
     let listener: TcpListener = match listenfd.take_tcp_listener(0)? {
         Some(std_listener) => {
             std_listener.set_nonblocking(true)?;
             TcpListener::from_std(std_listener)?
         }
         None => {
-            let addr: String = format!("{}:{}", host, port);
+            let addr: String = format!("{}:{}", env.host, env.port);
             TcpListener::bind(&addr).await?
         }
     };
 
+    // * Show listening address
     println!("Server listening on: {}", listener.local_addr()?);
 
-    // Launch axum's server with graceful shutdown.
+    // * Start serving with graceful shutdown
     serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
@@ -95,15 +96,14 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/*
-    * Graceful shutdown triggered by Ctrl+C or TERM signal (Unix).
-*/
 async fn shutdown_signal() {
+    // * A future that completes on Ctrl+C
     let ctrl_c = async {
         signal::ctrl_c().await.expect("Ctrl+C handler");
     };
 
     #[cfg(unix)]
+    // * On Unix, also listen for a TERM signal
     let terminate = async {
         signal::unix::signal(signal::unix::SignalKind::terminate())
             .expect("Terminate signal handler")
@@ -119,5 +119,6 @@ async fn shutdown_signal() {
         _ = terminate => tracing::info!("Shutting down via TERM signal"),
     }
 }
+
 
 // End of file: /src/main.rs

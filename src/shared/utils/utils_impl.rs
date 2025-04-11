@@ -1,17 +1,13 @@
 // Start of file: /src/shared/utils/mod.rs
 
-/*
-    * The utils module organizes useful functions, used by other modules.
-*/
+// * The utils module organizes useful functions, used by other modules.
 
 use serde_json::{
     ser::PrettyFormatter, Serializer
 };
 use serde::Serialize;
 
-/*
-    * Convert any `Serialize` type into a two-space-indented JSON string.
-*/
+// * Convert any `Serialize` type into a two-space-indented JSON string.
 pub fn to_two_space_indented_json<T: Serialize>(value: &T) -> serde_json::Result<String> {
     let mut writer: Vec<u8> = Vec::new();
 
