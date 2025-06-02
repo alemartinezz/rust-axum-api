@@ -1,7 +1,7 @@
 // Start of file: /src/config/mod.rs
 
 /*
-    * Re-export submodules related to configuration, environment variables, and app state.
+* Re-export submodules related to configuration, environment variables, and app state.
 */
 
 pub mod environment;
