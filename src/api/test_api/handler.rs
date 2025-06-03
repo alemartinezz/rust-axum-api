@@ -27,7 +27,7 @@ pub async fn timeout_test_handler(
     State(state): State<AppState>,
     _body: Bytes,
 ) -> HandlerResponse {
-    let timeout_seconds = state.environment.default_timeout_seconds;
+    let timeout_seconds: u64 = state.environment.default_timeout_seconds;
     
     info!("Testing timeout: sleeping for {} seconds (timeout is set to {} seconds)", 
           timeout_seconds + 2, timeout_seconds);
@@ -63,8 +63,8 @@ pub async fn body_size_test_handler(
     State(state): State<AppState>,
     body: Bytes,
 ) -> HandlerResponse {
-    let max_size = state.environment.max_request_body_size;
-    let body_size = body.len();
+    let max_size: usize = state.environment.max_request_body_size;
+    let body_size: usize = body.len();
     
     info!("Testing body size: received {} bytes (max allowed: {} bytes)", 
           body_size, max_size);

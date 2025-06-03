@@ -1,3 +1,3 @@
-pub mod database_service;
+pub mod schema_manager;
 
-pub use database_service::DatabaseService; 
+pub use schema_manager::DatabaseService; 

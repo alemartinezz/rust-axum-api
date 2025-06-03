@@ -54,7 +54,7 @@ DB_PASSWORD=postgres
 
 ### 2. Start PostgreSQL with Docker
 ```bash
-docker-compose -f docker/docker-compose.dev.yml up -d
+docker-compose -f docker/docker-compose.dev.yml down -v && docker-compose -f docker/docker-compose.dev.yml up -d && docker-compose -f docker/docker-compose.dev.yml logs db
 ```
 
 ### 3. Run Application
@@ -203,8 +203,6 @@ curl http://localhost:3000/db/monitoring
 ```
 src/database/
 ├── mod.rs                  # Exports DatabaseService
-├── database_service.rs     # Main implementation
+├── schema_manager.rs       # Main implementation
 └── README.md              # This documentation
 ```
-
-The system is designed to be **completely automatic**: startup initialization, programmatic tenant creation, and transparent management of UTC connections with standard fields. 

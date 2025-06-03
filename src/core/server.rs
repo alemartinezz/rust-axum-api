@@ -15,6 +15,7 @@ use anyhow::Result;
 use crate::config::state::AppState;
 use crate::api::test_api::routes::test_api_routes;
 use crate::api::test_database;
+use crate::api::tenants::routes::tenant_routes;
 use crate::utils::{
     error_handler::handle_global_error,
     response_handler::response_wrapper
@@ -28,6 +29,8 @@ pub fn create_app() -> Router {
     Router::new()
         .merge(test_api_routes())
         .merge(test_database::test_database_routes())
+        // Add new routes here
+        .merge(tenant_routes())
         .layer(
             ServiceBuilder::new()
                 .layer(from_fn(response_wrapper))

@@ -6,17 +6,20 @@ A production-ready, multi-tenant REST API built with Rust and Axum, featuring co
 
 This API implements a sophisticated multi-tenant architecture with isolated database schemas, comprehensive middleware stack, and modular design patterns. Built for scalability, maintainability, and production deployment.
 
+(Instructions for running at the end)
+
 ### ✨ Core API Features
 
 1. **✅ Global Error Handling** - 404 for not found, 408 for timeouts, 413 for large payloads, 500 for internal errors
 2. **✅ Unified Response Wrapper** - Consistent JSON output format for all endpoints
-3. **✅ Structured Logging and Tracing** - Complete observability with `tracing` and `tracing-subscriber`
-4. **✅ Graceful Shutdown** - Signal handling with proper resource cleanup
-5. **✅ Hot Reload** - Development efficiency with `listenfd`, `systemfd`, and `cargo-watch`
-6. **✅ Layered Environment Configuration** - Sophisticated `.env` file hierarchy
-7. **✅ Modular Architecture** - Clear separation of concerns with feature-based modules
-8. **✅ Multi-Tenant Database** - Schema-per-tenant isolation with PostgreSQL
-9. **✅ Production Ready** - Comprehensive middleware stack and security features
+3. **✅ Best practices** - Singleton pattern for env variables and db connection pools
+4. **✅ Structured Logging and Tracing** - Complete observability with `tracing` and `tracing-subscriber`
+5. **✅ Graceful Shutdown** - Signal handling with proper resource cleanup
+6. **✅ Hot Reload** - Development efficiency with `listenfd`, `systemfd`, and `cargo-watch`
+7. **✅ Layered Environment Configuration** - Sophisticated `.env` file hierarchy
+8. **✅ Modular Architecture** - Clear separation of concerns with feature-based modules
+9. **✅ Multi-Tenant Database** - Schema-per-tenant isolation with PostgreSQL and SQLx
+10. **✅ Production Ready** - Comprehensive middleware stack and security features
 
 ### 🚀 Development Experience
 
@@ -48,7 +51,7 @@ src/
 │   ├── logging.rs        # Structured logging and tracing configuration
 │   └── server.rs         # HTTP server setup and middleware stack
 ├── database/             # Data Layer
-│   └── database_service.rs # Multi-tenant database service with connection pooling
+│   └── schema_manager.rs # Multi-tenant database service with connection pooling
 └── utils/                # Cross-Cutting Concerns
     ├── error_handler/    # Global error handling middleware
     ├── response_handler/ # Unified response formatting system
@@ -406,10 +409,10 @@ Each tenant gets a dedicated schema (`tenant_{id}`) with:
 #### 3. Schema Operations
 ```rust
 // Create tenant schema and get connection pool
-let pool = database_service.get_tenant_pool("tenant_123", None).await?;
+let pool = schema_manager.get_tenant_pool("tenant_123", None).await?;
 
 // Create table with standard timestamp fields
-database_service.create_table_with_timestamps(
+schema_manager.create_table_with_timestamps(
     &pool,
     "users",
     "email VARCHAR NOT NULL UNIQUE, name VARCHAR NOT NULL"
@@ -530,6 +533,61 @@ echo '{"large": "payload"}' | curl -X POST http://localhost:3000/body-size -d @-
     "messages": ["Database connection healthy"],
     "date": "2025-06-03T18:03:14.523960+00:00"
 }
+```
+
+## Run
+
+### 📋 Prerequisites (install if you don't have them)
+
+```bash
+# 1. Install necessary tools for hot reload
+cargo install systemfd cargo-watch
+
+# 2. Verify Docker is running
+docker --version
+```
+
+### 🔧 Project Setup
+
+```bash
+# 3. Create environment configuration file
+cat > .env << 'EOF'
+ENVIRONMENT=development
+HOST=127.0.0.1
+PORT=3000
+PROTOCOL=http
+MAX_REQUEST_BODY_SIZE=2097152
+DEFAULT_TIMEOUT_SECONDS=30
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=rust_axum_api
+DB_USER=postgres
+DB_PASSWORD=postgres
+EOF
+```
+
+### 🗄️ Database Setup
+
+```bash
+# 4. Create and start dockerized database
+docker-compose -f docker/docker-compose.dev.yml down -v && \
+docker-compose -f docker/docker-compose.dev.yml up -d && \
+docker-compose -f docker/docker-compose.dev.yml logs db
+```
+
+### 🏃‍♂️ Run with Hot Reload
+
+```bash
+# 5. Run the application with hot reload
+systemfd --no-pid -s http::3000 -- cargo watch -x run
+```
+
+### ✅ Verify Everything Works
+
+```bash
+# 6. Test API responses (in another terminal)
+curl http://localhost:3000/hello
+curl http://localhost:3000/db/health
 ```
 
 ---

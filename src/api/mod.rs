@@ -2,3 +2,4 @@
 
 pub mod test_api;
 pub mod test_database;
+pub mod tenants;
