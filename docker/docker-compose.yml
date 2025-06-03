@@ -1,0 +1,47 @@
+version: '3.8'
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16.6
+    env_file: ../.env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT}:5432"
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Rust Axum API
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.production
+    ports:
+      - "${PORT}:${PORT}"
+    env_file: ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db  # Override to use container name
+      - RUST_LOG=debug
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

@@ -664,27 +664,81 @@ once_cell = "1.18.0"
 
 ## 10. Deployment
 
-### 10.1. Production Configuration
+### 10.1. Development Approach
+
+This project uses a **hybrid approach** for optimal development experience:
+
+**🚀 Local Development:**
+- **Application**: Run locally with hot reload using `systemfd` + `cargo watch`
+- **Database**: PostgreSQL in Docker container for isolation and easy recreation
+
+**☁️ Production/Staging:**
+- **Full containerization** with optimized multi-stage Docker builds
+- **Ready for AWS Fargate/ECS** deployments
+
+### 10.2. Local Development Workflow
+
+**Start the database:**
+```bash
+docker-compose -f docker/docker-compose.dev.yml up -d
+```
+
+**Run the application with hot reload:**
+```bash
+systemfd --no-pid -s http::3000 -- cargo watch -x run
+```
+
+**Recreate the database (when needed):**
+```bash
+docker-compose -f docker/docker-compose.dev.yml down -v && docker-compose -f docker/docker-compose.dev.yml up -d && docker-compose -f docker/docker-compose.dev.yml logs db
+```
+
+### 10.3. Docker Configuration Files
+
+```
+docker/
+├── Dockerfile.production      # Multi-stage build for production/staging
+├── docker-compose.yml        # Full stack for production/staging
+└── docker-compose.dev.yml    # PostgreSQL only for local development
+```
+
+**Key benefits:**
+- ✅ **Fast development**: No app containerization overhead
+- ✅ **Easy database management**: Isolated PostgreSQL with simple recreation
+- ✅ **Production ready**: Optimized builds for deployment
+- ✅ **Consistent environments**: Same database setup across all stages
+
+### 10.4. Production Configuration
 
 Set `ENVIRONMENT=production` to:
 - Skip loading `.env` files
 - Use only system environment variables
 - Enable production optimizations
 
-### 10.2. Docker Example
+### 10.5. Production Deployment
 
-```dockerfile
-FROM rust:1.85 as builder
-WORKDIR /app
-COPY . .
-RUN cargo build --release
+**For AWS Fargate/ECS or similar platforms:**
+```bash
+# Build production image
+docker build -f docker/Dockerfile.production -t my-app:latest .
 
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/my-axum-project /usr/local/bin/my-axum-project
-ENV ENVIRONMENT=production
-EXPOSE 3000
-CMD ["my-axum-project"]
+# Or use full stack
+docker-compose -f docker/docker-compose.yml up --build
+```
+
+**Environment variables for production:**
+```bash
+ENVIRONMENT=production
+HOST=0.0.0.0
+PORT=3000
+PROTOCOL=https
+DB_HOST=your-rds-endpoint.amazonaws.com
+DB_PORT=5432
+DB_NAME=production_db
+DB_USER=prod_user
+DB_PASSWORD=secure_password
+MAX_REQUEST_BODY_SIZE=5242880
+DEFAULT_TIMEOUT_SECONDS=30
 ```
 
 ---

@@ -1,0 +1,31 @@
+# Rust build artifacts
+target/
+Cargo.lock
+
+# Environment files (these will be mounted or passed as environment variables)
+.env.local
+.env.production
+
+# Git and editor files
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Documentation and README
+README.md
+*.md
+
+# Docker files (no need to copy into container)
+Dockerfile
+.dockerignore
+docker/
+
+# MacOS files
+.DS_Store
+
+# Logs
+*.log
+
+# Test files
+tests/ 
