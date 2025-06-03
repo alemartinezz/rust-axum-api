@@ -1,6 +1,4 @@
-// Start of file: /src/utils/error_handler/mod.rs
+// Error handling module
 
-mod error_handler;
+pub mod error_handler;
 pub use error_handler::*;
-
-// End of file: /src/utils/error_handler/mod.rs

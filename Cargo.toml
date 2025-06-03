@@ -13,7 +13,7 @@ production = []
 
 [dependencies]
 # * We use the full Tokio feature set for concurrency and I/O
-tokio = { version = "1.45.0", features = ["full"] }
+tokio = { version = "1.45.1", features = ["full"] }
 
 # * Using axum 0.8 with minimal dependencies
 axum = "0.8.4"
@@ -46,5 +46,19 @@ anyhow = "1.0.98"
 
 once_cell = "1.18.0"
 
+# * SQLx for PostgreSQL with async support
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-rustls-ring-native-roots",
+    "postgres",
+    "macros",
+    "migrate",
+    "uuid",
+    "chrono"
+] }
+
+# * UUID support
+uuid = { version = "1.17.0", features = ["v4", "serde"] }
+
 # Tests
-reqwest = "0.12.15"
+reqwest = "0.12.19"

@@ -1,6 +1,4 @@
-// Start of file: /src/utils/error_handler/error_handler.rs
-
-// Global error handling logic for layers (e.g. timeouts, large payloads, not found).
+// Global error handling for HTTP middleware layers
 
 use axum::{
     BoxError,
@@ -14,7 +12,7 @@ use tower::timeout::error::Elapsed;
 // Axum uses http_body_util for length-limiting
 use http_body_util::LengthLimitError;
 
-// This is the main function that maps errors to HTTP responses
+/// Maps various error types to appropriate HTTP responses
 pub async fn handle_global_error(err: BoxError) -> impl IntoResponse {
     // 413 if the body was too large
     if find_cause::<LengthLimitError>(&*err).is_some() {
@@ -35,7 +33,7 @@ pub async fn handle_global_error(err: BoxError) -> impl IntoResponse {
     StatusCode::INTERNAL_SERVER_ERROR
 }
 
-// A small helper function to find a specific cause in a chain of errors
+/// Helper function to find specific error type in error chain
 pub fn find_cause<T: Error + 'static>(err: &dyn Error) -> Option<&T> {
     let mut source: Option<&dyn Error> = err.source();
     
@@ -48,5 +46,3 @@ pub fn find_cause<T: Error + 'static>(err: &dyn Error) -> Option<&T> {
 
     None
 }
-
-// End of file: /src/utils/error_handler/error_handler.rs

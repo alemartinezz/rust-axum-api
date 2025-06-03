@@ -1,51 +1,47 @@
-// Start of file: /src/api/test/handler.rs
-
-// Test endpoints for validating different middleware and functionalities
+// Test handlers for middleware validation
 
 use serde_json::json;
 use axum::{http::StatusCode, extract::State, body::Bytes};
 use std::backtrace::Backtrace;
 
-use crate::config::{state::AppState, environment::EnvironmentVariables};
+use crate::config::state::AppState;
 use crate::utils::response_handler::HandlerResponse;
 use tracing::{instrument, info};
 
-// Simple hello endpoint (original functionality)
+/// Basic hello endpoint with version information
 #[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
 pub async fn hello_handler(
     State(_state): State<AppState>,
-    _body: Bytes,        // This forces Axum to read the body, also triggers body-size limits
+    _body: Bytes, // Forces body reading and triggers size limits
 ) -> HandlerResponse {
     info!("Hello endpoint called");
     
-    // Return a success status with optional data + message
     HandlerResponse::new(StatusCode::OK)
         .data(json!({ "version": "1.0.0" }))
         .message("Service started successfully")
 }
 
-// Endpoint that deliberately applies timeout to test timeout middleware
-#[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
+/// Endpoint that sleeps longer than timeout to test timeout middleware
+#[instrument(fields(backtrace = ?Backtrace::capture()), skip(state, _body))]
 pub async fn timeout_test_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _body: Bytes,
 ) -> HandlerResponse {
-    let env: &'static EnvironmentVariables = EnvironmentVariables::instance();
-    let timeout_seconds: u64 = env.default_timeout_seconds;
+    let timeout_seconds = state.environment.default_timeout_seconds;
     
     info!("Testing timeout: sleeping for {} seconds (timeout is set to {} seconds)", 
           timeout_seconds + 2, timeout_seconds);
     
-    // Sleep longer than the configured timeout to trigger timeout middleware
+    // Sleep beyond configured timeout to trigger middleware
     tokio::time::sleep(std::time::Duration::from_secs(timeout_seconds + 2)).await;
 
-    // This should never be reached due to timeout
+    // Should never be reached due to timeout
     HandlerResponse::new(StatusCode::OK)
         .data(json!({ "message": "This should not be reached due to timeout" }))
         .message("Timeout test completed (this shouldn't happen)")
 }
 
-// Endpoint that deliberately returns a 500 error to test error handling
+/// Returns 500 error to test error handling middleware
 #[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
 pub async fn error_test_handler(
     State(_state): State<AppState>,
@@ -61,20 +57,18 @@ pub async fn error_test_handler(
         .message("Deliberate 500 error for testing purposes")
 }
 
-// Endpoint that reads and processes the request body to test body size limits
-#[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state))]
+/// Tests body size limits by processing request body
+#[instrument(fields(backtrace = ?Backtrace::capture()), skip(state))]
 pub async fn body_size_test_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     body: Bytes,
 ) -> HandlerResponse {
-    let env: &'static EnvironmentVariables = EnvironmentVariables::instance();
-    let max_size: usize = env.max_request_body_size;
-    let body_size: usize = body.len();
+    let max_size = state.environment.max_request_body_size;
+    let body_size = body.len();
     
     info!("Testing body size: received {} bytes (max allowed: {} bytes)", 
           body_size, max_size);
 
-    // If we reach here, the body was within limits
     HandlerResponse::new(StatusCode::OK)
         .data(json!({ 
             "received_body_size": body_size,
@@ -85,10 +79,10 @@ pub async fn body_size_test_handler(
         .message(format!("Successfully processed body of {} bytes", body_size))
 }
 
-// Simple status endpoint (keeping the original hello functionality but as a separate endpoint)
-#[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
+/// Returns API status and health information
+#[instrument(fields(backtrace = ?Backtrace::capture()), skip(state, _body))]
 pub async fn status_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _body: Bytes,
 ) -> HandlerResponse {
     info!("Status endpoint called");
@@ -97,12 +91,12 @@ pub async fn status_handler(
         .data(json!({ 
             "version": "1.0.0",
             "status": "healthy",
-            "environment": EnvironmentVariables::instance().environment.as_ref()
+            "environment": state.environment.environment.as_ref()
         }))
         .message("API is running successfully")
 }
 
-// Endpoint that deliberately returns a 404 error to test not found handling
+/// Returns 404 error to test not found handling middleware
 #[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
 pub async fn not_found_test_handler(
     State(_state): State<AppState>,
@@ -118,5 +112,3 @@ pub async fn not_found_test_handler(
         }))
         .message("Deliberate 404 error for testing purposes")
 }
-
-// End of file: /src/api/test/handler.rs

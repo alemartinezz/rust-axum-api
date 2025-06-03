@@ -1,4 +1,4 @@
-// Start of file: /src/core/server.rs
+// Application server configuration and setup
 
 use std::time::Duration;
 use axum::{
@@ -12,19 +12,22 @@ use tokio::{signal, net::TcpListener};
 use listenfd::ListenFd;
 use anyhow::Result;
 
-use crate::config::{state::AppState, environment::EnvironmentVariables};
-use crate::api::test::routes::test_routes;
+use crate::config::state::AppState;
+use crate::api::test_api::routes::test_api_routes;
+use crate::api::test_database;
 use crate::utils::{
     error_handler::handle_global_error,
     response_handler::response_wrapper
 };
 
-// Create and configure the application router with all middleware layers
-pub fn create_app(state: AppState) -> Router {
-    let env: &'static EnvironmentVariables = EnvironmentVariables::instance();
+/// Creates and configures the application router with all middleware layers
+pub fn create_app() -> Router {
+    let state: &'static AppState = AppState::instance();
+    let env: &std::sync::Arc<crate::config::environment::EnvironmentVariables> = &state.environment;
     
     Router::new()
-        .merge(test_routes())
+        .merge(test_api_routes())
+        .merge(test_database::test_database_routes())
         .layer(
             ServiceBuilder::new()
                 .layer(from_fn(response_wrapper))
@@ -32,12 +35,12 @@ pub fn create_app(state: AppState) -> Router {
                 .layer(TimeoutLayer::new(Duration::from_secs(env.default_timeout_seconds)))
                 .layer(DefaultBodyLimit::max(env.max_request_body_size))
         )
-        .with_state(state)
+        .with_state(state.clone())
 }
 
-// Setup the TCP listener, either from environment or by binding to a new address
+/// Sets up the TCP listener from environment or binds to new address
 pub async fn setup_listener() -> Result<TcpListener> {
-    let env: &'static EnvironmentVariables = EnvironmentVariables::instance();
+    let env: &std::sync::Arc<crate::config::environment::EnvironmentVariables> = &AppState::instance().environment;
     let mut listenfd: ListenFd = ListenFd::from_env();
     
     let listener: TcpListener = match listenfd.take_tcp_listener(0)? {
@@ -54,7 +57,7 @@ pub async fn setup_listener() -> Result<TcpListener> {
     Ok(listener)
 }
 
-// Handle graceful shutdown signals
+/// Handles graceful shutdown signals (Ctrl+C and TERM)
 pub async fn shutdown_signal() {
     let ctrl_c = async {
         signal::ctrl_c().await.expect("Ctrl+C handler");
@@ -75,6 +78,7 @@ pub async fn shutdown_signal() {
         _ = ctrl_c => tracing::info!("Shutting down via Ctrl+C"),
         _ = terminate => tracing::info!("Shutting down via TERM signal"),
     }
+    
+    // Gracefully close database connections
+    AppState::shutdown().await;
 }
-
-// End of file: /src/core/server.rs

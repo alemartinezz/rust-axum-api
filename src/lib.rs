@@ -1,23 +1,22 @@
-// Start of file: /src/lib.rs
+// Library root for Rust Axum API with multi-tenant database support
 
-/*
-* This lib.rs re-exports the major modules for the reorganized structure.
-* New structure: api, core, config, utils
-* Legacy aliases maintained for backward compatibility
-*/
-
+pub mod api;
 pub mod config;
 pub mod core;
-pub mod api;
+pub mod database;
 pub mod utils;
 
+pub use api::*;
+pub use config::*;
+pub use core::*;
+pub use database::*;
+pub use utils::*;
+
 // Legacy aliases for backward compatibility
-pub mod features {
-    pub use crate::api::*;
-}
+pub use crate::config::state as app_state;
+pub use crate::core::server as app_server;
+pub use crate::core::logging as app_logging;
 
-pub mod shared {
-    pub use crate::utils::*;
-}
-
-// End of file: /src/lib.rs
+pub use crate::database::DatabaseService;
+pub use crate::config::environment::EnvironmentVariables;
+pub use crate::config::state::AppState;

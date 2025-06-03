@@ -5,6 +5,8 @@
     * response formats, middleware wrappers, shared utilities, etc.
 */
 
+// Utility modules for common functionality
+
 pub mod error_handler;
 pub mod response_handler;
 pub mod utils;

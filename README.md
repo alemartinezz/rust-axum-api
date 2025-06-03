@@ -1,759 +1,563 @@
-# 🦀 Rust Axum API Template - Comprehensive Guide
+# 🦀 Rust Axum Multi-Tenant API
 
-## Introduction
+A production-ready, multi-tenant REST API built with Rust and Axum, featuring comprehensive middleware layers, database multi-tenancy, and enterprise-grade architecture patterns.
 
-This guide will help you understand and extend this Axum-based API template that provides:
+## Overview
 
-1. **✅ Global Error Handling** (404 for not found, 408 for timeouts, 413 for large payloads, 500 for internal errors)
-2. **✅ Unified Response Wrapper** for consistent JSON output
-3. **✅ Structured Logging and Tracing** (via `tracing`, `tracing-subscriber`)
-4. **✅ Graceful Shutdown** with signal handling
-5. **✅ Hot Reload** in development (using `listenfd`, `systemfd`, and `cargo-watch`)
-6. **✅ Layered Environment Configuration** with `.env` support
-7. **✅ Modular Architecture** with clear separation of concerns
+This API implements a sophisticated multi-tenant architecture with isolated database schemas, comprehensive middleware stack, and modular design patterns. Built for scalability, maintainability, and production deployment.
 
-## Project Structure
+### ✨ Core API Features
 
-The template follows a clean, modular architecture:
+1. **✅ Global Error Handling** - 404 for not found, 408 for timeouts, 413 for large payloads, 500 for internal errors
+2. **✅ Unified Response Wrapper** - Consistent JSON output format for all endpoints
+3. **✅ Structured Logging and Tracing** - Complete observability with `tracing` and `tracing-subscriber`
+4. **✅ Graceful Shutdown** - Signal handling with proper resource cleanup
+5. **✅ Hot Reload** - Development efficiency with `listenfd`, `systemfd`, and `cargo-watch`
+6. **✅ Layered Environment Configuration** - Sophisticated `.env` file hierarchy
+7. **✅ Modular Architecture** - Clear separation of concerns with feature-based modules
+8. **✅ Multi-Tenant Database** - Schema-per-tenant isolation with PostgreSQL
+9. **✅ Production Ready** - Comprehensive middleware stack and security features
 
-```bash
-rust-axum-api/
-├── Cargo.toml
-├── .env                    # Base configuration (included in repo)
-├── .env.local.example      # Local override example
-├── src/
-│   ├── api/               # API endpoints and routes
-│   │   └── test/          # Test endpoints for middleware validation
-│   │       ├── handler.rs
-│   │       ├── mod.rs
-│   │       └── routes.rs
-│   ├── core/              # Core business logic
-│   │   ├── logging.rs     # Tracing configuration
-│   │   ├── server.rs      # Server setup and configuration
-│   │   └── mod.rs
-│   ├── config/            # Application configuration
-│   │   ├── environment.rs # Environment variables management
-│   │   ├── state.rs       # Application state
-│   │   └── mod.rs
-│   ├── utils/             # Shared utilities
-│   │   ├── error_handler/ # Global error handling
-│   │   ├── response_handler/ # Response formatting
-│   │   ├── utils/         # Common utilities
-│   │   └── mod.rs
-│   ├── lib.rs
-│   └── main.rs            # Application entry point
-```
+### 🚀 Development Experience
+
+- ✅ **Zero-setup development** - Ready-to-run with sensible defaults
+- ✅ **Production-ready configuration** - Environment-based settings management
+- ✅ **Consistent API responses** - Automatic formatting and error handling
+- ✅ **Comprehensive error handling** - Proper HTTP status codes and error context
+- ✅ **Hot reload for efficient development** - File watching with automatic recompilation
+- ✅ **Graceful shutdown for reliable deployments** - Proper resource cleanup
+- ✅ **Structured logging for observability** - Distributed tracing and performance monitoring
 
 ---
 
-## 1. Quick Start
+## API Architecture
 
-### 1.1. Clone and Run
+### 1. Modular Structure
 
-```bash
-git clone <your-repo>
-cd rust-axum-api
-cargo run
+The API follows a domain-driven design with clear architectural boundaries:
+
+```
+src/
+├── api/                    # API Layer - HTTP endpoints and routing
+│   ├── test_api/          # Test endpoints for middleware validation
+│   └── test_database/     # Database health and monitoring endpoints
+├── config/                # Configuration Layer
+│   ├── environment.rs     # Environment variable management with layered loading
+│   └── state.rs          # Application state with singleton pattern
+├── core/                  # Core Business Logic
+│   ├── logging.rs        # Structured logging and tracing configuration
+│   └── server.rs         # HTTP server setup and middleware stack
+├── database/             # Data Layer
+│   └── database_service.rs # Multi-tenant database service with connection pooling
+└── utils/                # Cross-Cutting Concerns
+    ├── error_handler/    # Global error handling middleware
+    ├── response_handler/ # Unified response formatting system
+    └── utils/           # Common utilities and helpers
 ```
 
-**That's it!** The project includes a ready-to-use `.env` file with sensible defaults.
+### 2. Singleton Pattern Architecture
 
-### 1.2. Test the API
+The application uses a centralized singleton pattern to ensure single instances of all critical components and shared resources:
 
-The API includes several test endpoints to validate different middleware components:
+#### AppState as the Only Singleton
+```rust
+#[derive(Debug, Clone)]
+pub struct AppState {
+    pub environment: Arc<EnvironmentVariables>,
+    pub database: DatabaseService,
+}
 
-```bash
-# Basic hello endpoint
-curl http://127.0.0.1:3000/hello
-
-# API status endpoint
-curl http://127.0.0.1:3000/test/status
-
-# Test timeout middleware (will take ~4 seconds)
-curl http://127.0.0.1:3000/test/timeout
-
-# Test error handling
-curl http://127.0.0.1:3000/test/error
-
-# Test not found handling
-curl http://127.0.0.1:3000/test/not-found
-
-# Test body size limits with small payload
-curl -X POST http://127.0.0.1:3000/test/body-size \
-  -H "Content-Type: application/json" \
-  -d '{"test": "data"}'
+impl AppState {
+    pub fn instance() -> &'static Self {
+        static INSTANCE: Lazy<AppState> = Lazy::new(|| {
+            AppState::new().expect("Failed to initialize AppState")
+        });
+        &INSTANCE
+    }
+}
 ```
 
-Expected response format for successful requests:
+#### Centralized Singleton Component Flow
+```
+AppState::instance() (Single Application Singleton)
+├── environment: Arc<EnvironmentVariables>
+│   └── Created once with EnvironmentVariables::load()
+│   └── Shared safely across all components via Arc<T>
+│   └── No independent singleton - only exists within AppState
+└── database: DatabaseService
+    └── Receives Arc<EnvironmentVariables> from AppState
+    └── Contains HashMap<String, PgPool> for connection pools
+    └── All database pools are singleton by containment
+```
+
+#### Key Benefits:
+- **Single Source of Truth**: Only one singleton (`AppState`) manages all application state
+- **Consistent Configuration**: One `EnvironmentVariables` instance shared across all components
+- **Unique Database Pools**: Connection pools guaranteed to be application-wide singletons
+- **Thread-Safe Sharing**: `Arc<EnvironmentVariables>` enables safe sharing across async tasks
+- **Lazy Initialization**: All components initialize only when first accessed
+- **Memory Efficiency**: No duplicate instances of heavy resources
+- **No Singleton Conflicts**: Eliminates possibility of multiple configuration instances
+
+#### Implementation Details:
+```rust
+// AppState creation flow - single instance creation
+fn new() -> anyhow::Result<Self> {
+    let environment = EnvironmentVariables::load()?;     // Create once
+    let environment_arc = Arc::new(environment);         // Wrap for sharing
+    Ok(Self {
+        environment: environment_arc.clone(),            // Share same instance
+        database: DatabaseService::new(environment_arc), // Share same config
+    })
+}
+```
+
+#### Access Pattern in Handlers:
+```rust
+async fn handler(State(app_state): State<AppState>) -> Result<Response, Error> {
+    // Access singleton components through extracted app_state
+    let db_service = &app_state.database;           // Singleton DatabaseService
+    let config = &app_state.environment;           // Singleton EnvironmentVariables
+    
+    // All database operations use the same singleton pools
+    let pool = db_service.get_tenant_pool("tenant_123", None).await?;
+    
+    // Access configuration values directly
+    let timeout = config.default_timeout_seconds;
+    let max_size = config.max_request_body_size;
+}
+```
+
+### 3. Middleware Stack Architecture
+
+The API implements a comprehensive middleware stack with specific error handling:
+
+```rust
+ServiceBuilder::new()
+    .layer(from_fn(response_wrapper))           // Unified response formatting
+    .layer(HandleErrorLayer::new(handle_global_error)) // Global error handling
+    .layer(TimeoutLayer::new(Duration::from_secs(timeout))) // Request timeouts
+    .layer(DefaultBodyLimit::max(max_size))     // Body size limits
+```
+
+#### Error Handling Matrix:
+| Error Type | HTTP Status | Description |
+|------------|------------|-------------|
+| `LengthLimitError` | 413 Payload Too Large | Request body exceeds configured limit |
+| `Elapsed` | 408 Request Timeout | Request exceeds configured timeout |
+| `MatchedPathRejection` | 404 Not Found | Route not found in router |
+| `InvalidUri` | 404 Not Found | Malformed URI patterns |
+| Other | 500 Internal Server Error | Fallback for unhandled errors |
+
+### 4. Response Standardization System
+
+All API responses follow a consistent format through the `response_wrapper` middleware:
+
+#### Standard Response Format:
 ```json
 {
-  "status": "OK",
-  "code": 200,
-  "data": {
-    "version": "1.0.0"
-  },
-  "messages": [
-    "Service started successfully"
-  ],
-  "date": "2025-06-02T19:58:06.486652+00:00"
+    "status": "OK",                    // HTTP status text
+    "code": 200,                      // HTTP status code
+    "data": { /* payload */ },        // Response data
+    "messages": ["Success message"],   // Informational messages
+    "date": "2025-06-03T18:03:14.523960+00:00"  // ISO timestamp
+}
+```
+
+#### HandlerResponse Builder Pattern:
+```rust
+HandlerResponse::new(StatusCode::OK)
+    .data(json!({ "user_id": 123, "name": "John" }))
+    .message("User retrieved successfully")
+```
+
+### 5. Configuration Management
+
+#### Layered Environment Loading:
+The system implements a sophisticated configuration hierarchy:
+```
+System Environment Variables (highest priority)
+    ↓
+.env.production (production only)
+    ↓  
+.env.local (development overrides, gitignored)
+    ↓
+.env (base configuration, version controlled)
+```
+
+#### Configuration Validation:
+- **Type Safety**: Automatic parsing with comprehensive error reporting
+- **Missing Variables**: Aggregated error reporting for all missing required variables
+- **Format Validation**: Specific validation for ports, URLs, and enum values
+- **Environment Switching**: Automatic configuration loading based on `ENVIRONMENT` variable
+
+#### Configuration Access Pattern:
+All configuration access goes through the singleton `AppState`:
+```rust
+// Configuration is accessed via AppState singleton
+async fn handler(State(app_state): State<AppState>) -> Result<Response, Error> {
+    let config = &app_state.environment;
+    
+    // Access any configuration value
+    let timeout = config.default_timeout_seconds;
+    let max_size = config.max_request_body_size;
+    let db_host = &config.db_host;
+    let environment = &config.environment;
 }
 ```
 
 ---
 
-## 2. Architecture Overview
+## API Capabilities
 
-### 2.1. Main Entry Point (`src/main.rs`)
+### 1. Database Management Endpoints
 
-The main function is simplified and focused on orchestration:
+#### Health Check (`GET /db/health`)
+- **Purpose**: Verifies database connectivity and health
+- **Response**: Connection status with detailed error information
+- **Use Case**: Load balancer health checks, monitoring systems
 
+#### Monitoring (`GET /db/monitoring`)  
+- **Purpose**: Provides database pool statistics and active connections
+- **Response**: Active pools, connection counts, and performance metrics
+- **Use Case**: Operational monitoring, capacity planning
+
+### 2. Middleware Testing Endpoints
+
+#### Hello Endpoint (`GET /hello`)
+- **Purpose**: Basic connectivity test with version information
+- **Features**: Demonstrates standard response format
+
+#### Status Endpoint (`GET /status`)
+- **Purpose**: API health check with environment information
+- **Response**: API version, health status, environment details
+
+#### Timeout Test (`GET /timeout`)
+- **Purpose**: Tests timeout middleware behavior
+- **Behavior**: Deliberately sleeps beyond configured timeout to trigger middleware
+
+#### Error Test (`GET /error`)
+- **Purpose**: Tests error handling middleware
+- **Behavior**: Returns deliberate 500 error to validate error formatting
+
+#### Body Size Test (`POST /body-size`)
+- **Purpose**: Tests request body size limits
+- **Features**: Processes and validates request body against configured limits
+
+#### Not Found Test (`GET /not-found`)
+- **Purpose**: Tests 404 error handling
+- **Behavior**: Returns deliberate 404 to validate not found handling
+
+---
+
+## Technical Characteristics
+
+### 1. Performance Optimization
+
+#### Connection Pooling:
+- **Per-tenant pools**: Isolated connection pools for data security
+- **Pool sizing**: Configurable min/max connections (default: 5-20)
+- **Idle timeout**: 30-second idle connection cleanup
+- **Health monitoring**: Automatic pool health checks and recreation
+
+#### Async Architecture:
+- **Non-blocking I/O**: Full async/await implementation with Tokio
+- **Concurrent requests**: Efficient request handling without thread blocking
+- **Resource efficiency**: Minimal memory footprint with optimal resource utilization
+
+### 2. Security Features
+
+#### Multi-Tenant Isolation:
+- **Schema-level separation**: Complete data isolation between tenants
+- **Connection isolation**: Separate connection pools prevent data leakage
+- **Search path configuration**: Automatic schema targeting for queries
+
+#### SSL/TLS Configuration:
 ```rust
-// The main entry point - simplified and focused on orchestration only
+// Production: require SSL
+options = options.ssl_mode(sqlx::postgres::PgSslMode::Require);
 
-use axum::serve;
+// Development: prefer SSL but don't require it
+options = options.ssl_mode(sqlx::postgres::PgSslMode::Prefer);
+```
 
-use my_axum_project::config::{state::AppState, environment::EnvironmentVariables};
-use my_axum_project::core::{logging, server};
+#### Environment-based Security:
+- **Production hardening**: Automatic SSL requirements and secure defaults
+- **Development flexibility**: Relaxed settings for local development
+- **Configuration validation**: Strict validation prevents misconfigurations
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    // Initialize logging
-    logging::init_tracing();
+### 3. Observability & Monitoring
 
-    // Initialize environment variables
-    let _ = EnvironmentVariables::instance();
-    
-    // Create the application state
-    let state: AppState = AppState::new();
-    
-    // Setup the application router
-    let app: axum::Router = server::create_app(state);
-    
-    // Setup the TCP listener
-    let listener: tokio::net::TcpListener = server::setup_listener().await?;
+#### Structured Logging:
+```rust
+tracing::info!("Request processed", 
+    user_id = %user_id, 
+    tenant_id = %tenant_id,
+    duration_ms = %duration.as_millis()
+);
+```
 
-    // Show listening address
-    println!("Server listening on: {}", listener.local_addr()?);
+#### Distributed Tracing:
+- **Span creation**: Automatic span creation for all endpoints
+- **Backtrace capture**: Comprehensive error context in production
+- **Performance tracking**: Request duration and resource usage monitoring
 
-    // Start serving with graceful shutdown
-    // Errors are handled by the global error handler middleware
-    serve(listener, app)
-        .with_graceful_shutdown(server::shutdown_signal())
-        .await?;
+#### Health Metrics:
+- **Database connectivity**: Real-time connection health monitoring
+- **Pool statistics**: Active connections, idle connections, pool utilization
+- **Error rates**: Automatic error classification and reporting
 
-    Ok(())
+### 4. Operational Excellence
+
+#### Graceful Shutdown:
+```rust
+tokio::select! {
+    _ = ctrl_c => tracing::info!("Shutting down via Ctrl+C"),
+    _ = terminate => tracing::info!("Shutting down via TERM signal"),
+}
+AppState::shutdown().await; // Closes all database connections
+```
+
+#### Hot Reload Support:
+- **Development efficiency**: File watching with automatic recompilation
+- **Zero-downtime updates**: Socket reuse for seamless development
+- **Configuration reloading**: Dynamic environment variable updates
+
+#### Docker Support:
+- **Multi-stage builds**: Optimized production images
+- **Development containers**: Isolated PostgreSQL for local development
+- **Production deployment**: Ready for container orchestration platforms
+
+---
+
+## Multi-Tenant Database Service
+
+The `DatabaseService` implements a schema-per-tenant pattern providing complete data isolation:
+
+### 🗃️ Database Features
+
+- ✅ **Automatic Initialization** - Master schema with `tenants` table on startup
+- ✅ **UTC by Default** - All connections with UTC timezone configuration
+- ✅ **Standard Fields** - `id`, `created_at`, `updated_at` with automatic triggers
+- ✅ **Pool per Schema** - Independent connections (min: 5, max: 20)
+- ✅ **Multi-app Support** - Multiple applications per tenant
+- ✅ **Thread-safe** - `Arc<RwLock<HashMap<String, PgPool>>>`
+- ✅ **SSL/TLS** - Automatic configuration based on environment
+- ✅ **Graceful Shutdown** - Controlled connection closure
+
+### Architecture Features:
+- **Schema Isolation**: Each tenant gets a dedicated PostgreSQL schema
+- **Connection Pooling**: Individual connection pools per tenant schema (max 20, min 5 connections)
+- **Automatic Schema Management**: Dynamic schema creation and migration
+- **UTC Standardization**: All timestamps in UTC with automatic triggers
+- **SSL Configuration**: Environment-based SSL settings for security
+
+### Key Components:
+```rust
+pub struct DatabaseService {
+    /// Map of pool_key -> PgPool where key format is "{schema}_{app}" or just "{schema}"
+    data_sources: Arc<RwLock<HashMap<String, PgPool>>>,
+    /// Environment configuration
+    config: Arc<EnvironmentVariables>,
 }
 ```
 
-### 2.2. Core Modules
-
-#### Server Configuration (`src/core/server.rs`)
-
-```rust
-// Create and configure the application router with all middleware layers
-pub fn create_app(state: AppState) -> Router {
-    let env = EnvironmentVariables::instance();
-    
-    Router::new()
-        .merge(test_routes())
-        .layer(
-            ServiceBuilder::new()
-                .layer(from_fn(response_wrapper))
-                .layer(HandleErrorLayer::new(handle_global_error))
-                .layer(TimeoutLayer::new(Duration::from_secs(env.default_timeout_seconds)))
-                .layer(DefaultBodyLimit::max(env.max_request_body_size))
-        )
-        .with_state(state)
-}
+### Standard Table Structure:
+All tables follow a consistent pattern with automatic timestamp management:
+```sql
+CREATE TABLE example_table (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- custom fields here --
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
-#### Logging Configuration (`src/core/logging.rs`)
+### Automatic Triggers:
+Each table gets an automatic `updated_at` trigger for audit trail:
+```sql
+CREATE TRIGGER update_example_table_updated_at
+    BEFORE UPDATE ON example_table
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+```
 
+### Database Schema Management
+
+#### 1. Master Schema
+The `master` schema contains the tenant registry:
+
+```sql
+CREATE TABLE tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_name VARCHAR NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### 2. Tenant Schemas
+Each tenant gets a dedicated schema (`tenant_{id}`) with:
+- **Isolated tables**: Complete data separation
+- **Standard functions**: `update_updated_at_column()` for timestamp management
+- **Automatic triggers**: `updated_at` field maintenance
+- **UTC enforcement**: Timezone configuration for all connections
+
+#### 3. Schema Operations
 ```rust
-// Initialize the tracing subscriber with default configuration
-pub fn init_tracing() {
-    let env_filter: EnvFilter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "my_axum_project=info,tower_http=debug,axum=trace".parse().unwrap());
-    
-    fmt()
-        .with_env_filter(env_filter)
-        .with_span_events(FmtSpan::FULL)
-        .init();
-}
+// Create tenant schema and get connection pool
+let pool = database_service.get_tenant_pool("tenant_123", None).await?;
+
+// Create table with standard timestamp fields
+database_service.create_table_with_timestamps(
+    &pool,
+    "users",
+    "email VARCHAR NOT NULL UNIQUE, name VARCHAR NOT NULL"
+).await?;
 ```
 
 ---
 
-## 3. Configuration System
+## Deployment Architecture
 
-### 3.1. Layered Environment Configuration
+### 1. Environment Configurations
 
-The template uses a sophisticated configuration system with priority:
-
-```
-System Variables > .env.local/.env.production > .env (base)
-```
-
-**Base configuration** (`.env` - included in repository):
+#### Development:
 ```bash
-# Application Environment
 ENVIRONMENT=development
-
-# Server Configuration
 HOST=127.0.0.1
 PORT=3000
-PROTOCOL=http
-
-# Request Configuration
-MAX_REQUEST_BODY_SIZE=2097152
-DEFAULT_TIMEOUT_SECONDS=30
-
-# Database Configuration (development defaults)
 DB_HOST=localhost
 DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
+MAX_REQUEST_BODY_SIZE=2097152  # 2MB
+DEFAULT_TIMEOUT_SECONDS=30
 ```
 
-**Local overrides** (`.env.local` - gitignored):
-```bash
-# Copy .env.local.example to .env.local for local overrides
-PORT=8080
-DEFAULT_TIMEOUT_SECONDS=60
-DB_PASSWORD=my_secure_password
-```
-
-### 3.2. Environment Variables Singleton
-
-```rust
-// Loads environment variables with priority: .env < .env.local < .env.production
-// Always loads .env as base configuration, then overrides with local/production files
-impl EnvironmentVariables {
-    fn load() -> Result<Self> {
-        let environment = std::env::var("ENVIRONMENT").unwrap_or_else(|_| DEFAULT_ENVIRONMENT.to_string());
-        
-        // Load base configuration from .env
-        if let Err(e) = dotenv::from_path(".env") {
-            warn!("Could not load .env file: {}", e);
-        }
-        
-        // Load environment-specific overrides
-        match environment.as_str() {
-            "production" => {
-                if let Err(e) = dotenv::from_path(".env.production") {
-                    warn!("Could not load .env.production file: {}", e);
-                }
-            }
-            _ => {
-                // In development, load .env.local for local overrides
-                if let Err(e) = dotenv::from_path(".env.local") {
-                    tracing::debug!("No .env.local file found: {}", e);
-                }
-            }
-        }
-
-        // Build configuration with defaults
-        Ok(Self { /* ... */ })
-    }
-
-    // Returns a reference to the lazily-initialized environment configuration
-    pub fn instance() -> &'static Self {
-        static INSTANCE: Lazy<Result<EnvironmentVariables, anyhow::Error>> = Lazy::new(|| {
-            let config: EnvironmentVariables = EnvironmentVariables::load()?;
-            
-            if cfg!(debug_assertions) {
-                tracing::debug!("Loaded environment configuration: {:#?}", config);
-            }
-            
-            Ok(config)
-        });
-
-        // Panics if loading fails
-        INSTANCE.as_ref().expect("Failed to load environment configuration")
-    }
-}
-```
-
----
-
-## 4. Global Error Handling
-
-### 4.1. Error Handler (`src/utils/error_handler/error_handler.rs`)
-
-The global error handler provides comprehensive error handling for common HTTP error scenarios:
-
-```rust
-// Global error handling logic for layers (e.g. timeouts, large payloads, not found).
-
-use axum::{
-    BoxError,
-    http::StatusCode,
-    response::IntoResponse,
-    extract::rejection::MatchedPathRejection,
-};
-use std::error::Error;
-use tower::timeout::error::Elapsed;
-use http_body_util::LengthLimitError;
-
-// This is the main function that maps errors to HTTP responses
-pub async fn handle_global_error(err: BoxError) -> impl IntoResponse {
-    // 413 if the body was too large
-    if find_cause::<LengthLimitError>(&*err).is_some() {
-        return StatusCode::PAYLOAD_TOO_LARGE;
-    }
-
-    // 408 if the request took too long
-    if err.is::<Elapsed>() {
-        return StatusCode::REQUEST_TIMEOUT;
-    }
-
-    // 404 for not found routes/resources
-    if find_cause::<MatchedPathRejection>(&*err).is_some() {
-        return StatusCode::NOT_FOUND;
-    }
-
-    // Check for common not found errors that should be 404
-    let error_msg = err.to_string().to_lowercase();
-    if error_msg.contains("not found") 
-        || error_msg.contains("no route found")
-        || error_msg.contains("route not found")
-        || error_msg.contains("path not found")
-        || error_msg.contains("resource not found") {
-        return StatusCode::NOT_FOUND;
-    }
-
-    // Otherwise, 500
-    StatusCode::INTERNAL_SERVER_ERROR
-}
-
-// A small helper function to find a specific cause in a chain of errors
-pub fn find_cause<T: Error + 'static>(err: &dyn Error) -> Option<&T> {
-    let mut source: Option<&dyn Error> = err.source();
-    
-    while let Some(s) = source {
-        if let Some(typed) = s.downcast_ref::<T>() {
-            return Some(typed);
-        }
-        source = s.source();
-    }
-
-    None
-}
-```
-
-### 4.2. Error Types Handled
-
-The global error handler provides explicit handling for common HTTP error scenarios:
-
-#### **404 Not Found**
-- **`MatchedPathRejection`** → Route not found in the router
-- **Not found patterns** → Detected by error message patterns (not found, route not found, etc.)
-
-#### **408 Request Timeout**
-- **`Elapsed`** → Request exceeded the configured timeout limit
-
-#### **413 Payload Too Large**
-- **`LengthLimitError`** → Request body exceeds the configured size limit
-
-#### **500 Internal Server Error**
-- **Any other error** → Fallback for unhandled errors
-
-### 4.3. Testing Error Handling
-
-The API includes test endpoints to validate each error type:
-
-```bash
-# Test 404 Not Found
-curl http://localhost:3000/test/not-found
-
-# Test 408 Request Timeout (will take ~4 seconds)
-curl http://localhost:3000/test/timeout
-
-# Test 413 Payload Too Large (requires payload > 2MB)
-python3 -c "import json; print(json.dumps({'data': 'x' * 3000000}))" | \
-curl -X POST http://localhost:3000/test/body-size \
-  -H "Content-Type: application/json" \
-  -d @-
-
-# Test 500 Internal Server Error
-curl http://localhost:3000/test/error
-```
-
-### 4.4. Consistent Error Responses
-
-All errors are automatically wrapped in the standard response format:
-
-```json
-{
-  "status": "NOT_FOUND",
-  "code": 404,
-  "data": null,
-  "messages": [],
-  "date": "2025-06-02T20:59:03.015201+00:00"
-}
-```
-
----
-
-## 5. Unified Response System
-
-### 5.1. HandlerResponse Structure
-
-```rust
-// A convenience struct that can be returned from handlers
-#[derive(Debug, Clone)]
-pub struct HandlerResponse {
-    pub status_code: StatusCode,
-    pub data: serde_json::Value,
-    pub messages: Vec<String>,
-}
-
-impl HandlerResponse {
-    // Initialize with a status code, defaulting data = null, messages = []
-    pub fn new(status_code: StatusCode) -> Self {
-        Self {
-            status_code,
-            data: serde_json::Value::Null,
-            messages: Vec::new(),
-        }
-    }
-
-    // Add a JSON data object
-    pub fn data(mut self, data: serde_json::Value) -> Self {
-        self.data = data;
-        self
-    }
-
-    // Add a message string
-    pub fn message(mut self, message: impl Into<String>) -> Self {
-        self.messages.push(message.into());
-        self
-    }
-}
-```
-
-### 5.2. Response Wrapper Middleware
-
-The `response_wrapper` middleware automatically formats all responses:
-
-```rust
-// The main middleware that wraps every response in ResponseFormat
-pub async fn response_wrapper(
-    req: Request<Body>,
-    next: Next,
-) -> Result<Response<Body>, Infallible> {
-    // Run the next service (handler or next layer)
-    let response: Response<Body> = next.run(req).await;
-
-    // Extract the HandlerResponse fields (messages, data)
-    let (messages, data) = extract_response_components(&response);
-
-    // Deconstruct the response into parts
-    let (parts, _) = response.into_parts();
-
-    // Build the final top-level JSON
-    let default_status: String = create_default_status_message(&parts);
-    let formatted_status: String = default_status.to_uppercase().replace(' ', "_");
-
-    let wrapped: ResponseFormat = ResponseFormat {
-        status: formatted_status,
-        code: parts.status.as_u16(),
-        data,
-        messages,
-        date: Utc::now().to_rfc3339(),
-    };
-
-    // Log the final JSON structure
-    log_formatted_response(&wrapped);
-
-    // Convert parts + wrapped data into a final Response
-    Ok(build_final_response(parts, &wrapped))
-}
-```
-
----
-
-## 6. Adding New Endpoints
-
-### 6.1. Create a New API Module
-
-**Step 1**: Create the directory structure:
-```bash
-mkdir -p src/api/users
-```
-
-**Step 2**: Create `src/api/users/mod.rs`:
-```rust
-/*
-    The users API module. Re-exports the routes and handler.
-*/
-
-pub mod handler;
-pub mod routes;
-```
-
-**Step 3**: Create `src/api/users/handler.rs`:
-```rust
-// Demonstrates user management endpoints
-
-use serde_json::json;
-use axum::{http::StatusCode, extract::{State, Path}, body::Bytes};
-use std::backtrace::Backtrace;
-
-use crate::config::state::AppState;
-use crate::utils::response_handler::HandlerResponse;
-use tracing::instrument;
-
-#[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
-pub async fn get_users(
-    State(_state): State<AppState>,
-    _body: Bytes,
-) -> HandlerResponse {
-    HandlerResponse::new(StatusCode::OK)
-        .data(json!({ "users": [] }))
-        .message("Users retrieved successfully")
-}
-
-#[instrument(fields(backtrace = ?Backtrace::capture()), skip(_state, _body))]
-pub async fn get_user(
-    State(_state): State<AppState>,
-    Path(user_id): Path<u32>,
-    _body: Bytes,
-) -> HandlerResponse {
-    HandlerResponse::new(StatusCode::OK)
-        .data(json!({ "user_id": user_id, "name": "John Doe" }))
-        .message("User retrieved successfully")
-}
-```
-
-**Step 4**: Create `src/api/users/routes.rs`:
-```rust
-// Defines the user routes
-
-use axum::{routing::get, Router};
-use crate::api::users::handler::{get_users, get_user};
-use crate::config::state::AppState;
-
-// Build a Router with user-related routes
-pub fn user_routes() -> Router<AppState> {
-    Router::new()
-        .route("/users", get(get_users))
-        .route("/users/:user_id", get(get_user))
-}
-```
-
-**Step 5**: Update `src/api/mod.rs`:
-```rust
-/*
-    API endpoints and routes module.
-    Re-export all API-related modules here.
-*/
-
-pub mod hello;
-pub mod users;  // Add this line
-```
-
-**Step 6**: Update `src/core/server.rs`:
-```rust
-use crate::api::users::routes::user_routes;  // Add this import
-
-// In create_app function
-Router::new()
-    .merge(hello_routes())
-    .merge(user_routes())  // Add this line
-    .layer(/* ... */)
-```
-
-### 6.2. Testing New Endpoints
-
-```bash
-# Get all users
-curl http://127.0.0.1:3000/users
-
-# Get specific user
-curl http://127.0.0.1:3000/users/123
-```
-
----
-
-## 7. Development Workflow
-
-### 7.1. Hot Reload Setup
-
-Install required tools:
-```bash
-cargo install cargo-watch systemfd
-```
-
-Run with hot reload:
-```bash
-systemfd --no-pid -s http::3000 -- cargo watch -x run
-```
-
-### 7.2. Environment Configuration
-
-**Development**:
-- Uses `.env` as base configuration
-- Create `.env.local` for personal overrides
-
-**Production**:
-- Uses system environment variables
-- Create `.env.production` for production-specific settings
-
-### 7.3. Logging Configuration
-
-Customize logging levels via environment variables:
-```bash
-# In .env.local
-RUST_LOG=debug,my_axum_project=trace,tower_http=info
-```
-
----
-
-## 8. Best Practices
-
-### 8.1. Error Handling
-
-- Use `HandlerResponse` for consistent API responses
-- Let the global error handler manage layer errors (timeouts, body limits)
-- Use `?` operator in main.rs for critical bootstrap errors
-
-### 8.2. Configuration Management
-
-- Keep sensitive data in `.env.local` or `.env.production` (gitignored)
-- Use meaningful defaults in the base `.env` file
-- Access configuration through the singleton pattern
-
-### 8.3. Code Organization
-
-- Keep handlers focused on business logic
-- Use the response wrapper for consistent formatting
-- Organize features by API domain (`api/users/`, `api/posts/`, etc.)
-- Put shared utilities in `utils/`
-- Keep core functionality in `core/`
-
-### 8.4. Testing
-
-- Test individual handlers independently
-- Use the configured middleware stack for integration tests
-- Mock external dependencies through dependency injection
-
----
-
-## 9. Dependencies
-
-### Core Dependencies
-```toml
-[dependencies]
-tokio = { version = "1", features = ["full"] }
-axum = "0.8.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-tower = { version = "0.5.2", features = ["util", "timeout"] }
-http-body-util = "0.1.3"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-chrono = "0.4"
-listenfd = "1.0.2"
-dotenv = "0.15"
-anyhow = "1.0"
-once_cell = "1.18.0"
-```
-
----
-
-## 10. Deployment
-
-### 10.1. Development Approach
-
-This project uses a **hybrid approach** for optimal development experience:
-
-**🚀 Local Development:**
-- **Application**: Run locally with hot reload using `systemfd` + `cargo watch`
-- **Database**: PostgreSQL in Docker container for isolation and easy recreation
-
-**☁️ Production/Staging:**
-- **Full containerization** with optimized multi-stage Docker builds
-- **Ready for AWS Fargate/ECS** deployments
-
-### 10.2. Local Development Workflow
-
-**Start the database:**
-```bash
-docker-compose -f docker/docker-compose.dev.yml up -d
-```
-
-**Run the application with hot reload:**
-```bash
-systemfd --no-pid -s http::3000 -- cargo watch -x run
-```
-
-**Recreate the database (when needed):**
-```bash
-docker-compose -f docker/docker-compose.dev.yml down -v && docker-compose -f docker/docker-compose.dev.yml up -d && docker-compose -f docker/docker-compose.dev.yml logs db
-```
-
-### 10.3. Docker Configuration Files
-
-```
-docker/
-├── Dockerfile.production      # Multi-stage build for production/staging
-├── docker-compose.yml        # Full stack for production/staging
-└── docker-compose.dev.yml    # PostgreSQL only for local development
-```
-
-**Key benefits:**
-- ✅ **Fast development**: No app containerization overhead
-- ✅ **Easy database management**: Isolated PostgreSQL with simple recreation
-- ✅ **Production ready**: Optimized builds for deployment
-- ✅ **Consistent environments**: Same database setup across all stages
-
-### 10.4. Production Configuration
-
-Set `ENVIRONMENT=production` to:
-- Skip loading `.env` files
-- Use only system environment variables
-- Enable production optimizations
-
-### 10.5. Production Deployment
-
-**For AWS Fargate/ECS or similar platforms:**
-```bash
-# Build production image
-docker build -f docker/Dockerfile.production -t my-app:latest .
-
-# Or use full stack
-docker-compose -f docker/docker-compose.yml up --build
-```
-
-**Environment variables for production:**
+#### Production:
 ```bash
 ENVIRONMENT=production
 HOST=0.0.0.0
 PORT=3000
 PROTOCOL=https
-DB_HOST=your-rds-endpoint.amazonaws.com
+DB_HOST=production-db.amazonaws.com
 DB_PORT=5432
 DB_NAME=production_db
-DB_USER=prod_user
-DB_PASSWORD=secure_password
-MAX_REQUEST_BODY_SIZE=5242880
-DEFAULT_TIMEOUT_SECONDS=30
+# SSL required automatically in production
+```
+
+### 2. Container Strategy
+
+#### Local Development:
+- **Application**: Native execution with hot reload
+- **Database**: Docker container for isolation
+- **Benefits**: Fast iteration, easy database recreation
+
+#### Production:
+- **Full containerization**: Multi-stage Docker builds
+- **Optimized images**: Minimal production footprint
+- **Platform ready**: AWS Fargate, ECS, Kubernetes compatible
+
+### 3. Scalability Considerations
+
+#### Horizontal Scaling:
+- **Stateless design**: No session state, fully stateless architecture
+- **Database pooling**: Per-instance connection management
+- **Load balancer ready**: Health check endpoints for traffic routing
+
+#### Vertical Scaling:
+- **Resource efficiency**: Optimal memory and CPU utilization
+- **Configurable limits**: Adjustable connection pools and timeouts
+- **Performance monitoring**: Built-in metrics for capacity planning
+
+---
+
+## Dependencies & Technology Stack
+
+### Core Framework:
+- **Axum 0.8.4**: High-performance async web framework
+- **Tokio**: Async runtime with full feature set
+- **Tower**: Middleware and service composition
+- **SQLx**: Async PostgreSQL driver with compile-time query checking
+
+### Database & Storage:
+- **PostgreSQL**: Multi-tenant database with schema isolation
+- **Connection Pooling**: SQLx connection pool management
+- **Migrations**: Built-in schema management and versioning
+
+### Observability:
+- **Tracing**: Structured logging and distributed tracing
+- **Tracing-subscriber**: Log formatting and filtering
+- **Chrono**: UTC timestamp management
+
+### Configuration & Environment:
+- **Dotenv**: Layered environment file loading
+- **Once_cell**: Lazy static initialization for singletons
+- **Anyhow**: Comprehensive error handling and context
+
+### Development Tools:
+- **Cargo-watch**: File watching for hot reload
+- **Systemfd**: Socket reuse for zero-downtime reloads
+- **Listenfd**: File descriptor passing for development
+
+---
+
+## API Testing & Validation
+
+### Quick Health Check:
+```bash
+curl http://localhost:3000/hello
+curl http://localhost:3000/db/health
+```
+
+### Middleware Validation:
+```bash
+# Test timeout (will take ~30+ seconds)
+curl http://localhost:3000/timeout
+
+# Test error handling
+curl http://localhost:3000/error
+
+# Test body size limits
+echo '{"large": "payload"}' | curl -X POST http://localhost:3000/body-size -d @-
+```
+
+### Expected Response Format:
+```json
+{
+    "status": "OK",
+    "code": 200,
+    "data": { "database": "connected" },
+    "messages": ["Database connection healthy"],
+    "date": "2025-06-03T18:03:14.523960+00:00"
+}
 ```
 
 ---
 
-## Conclusion
+## Benefits & Advantages
 
-This template provides a solid foundation for building production-ready APIs with Rust and Axum. The modular architecture, comprehensive error handling, and flexible configuration system make it easy to extend and maintain.
+### 🏢 Enterprise-Grade Architecture
+- **Multi-tenancy**: Complete data isolation with schema-per-tenant pattern
+- **Scalability**: Horizontal and vertical scaling capabilities built-in
+- **Security**: SSL/TLS, environment-based hardening, and connection isolation
+- **Observability**: Comprehensive logging, tracing, and monitoring
 
-Key features:
-- ✅ **Zero-setup development** experience
-- ✅ **Production-ready** configuration management
-- ✅ **Consistent API responses** with automatic formatting
-- ✅ **Comprehensive error handling** with proper HTTP status codes
-- ✅ **Hot reload** for efficient development
-- ✅ **Graceful shutdown** for reliable deployments
-- ✅ **Structured logging** for observability
+### 🚀 Developer Experience
+- **Zero-setup development**: Ready to run with Docker database
+- **Hot reload**: Instant feedback during development
+- **Type safety**: Compile-time guarantees with Rust and SQLx
+- **Modular architecture**: Easy to extend and maintain
 
-Happy coding! 🦀 
+### 🔧 Production Ready
+- **Graceful shutdown**: Proper resource cleanup and signal handling
+- **Error handling**: Comprehensive middleware with proper HTTP status codes
+- **Configuration management**: Environment-based settings with validation
+- **Container ready**: Optimized builds for cloud deployment
+
+### 💼 Business Value
+- **Multi-tenant SaaS ready**: Complete tenant isolation and management
+- **Compliance friendly**: Audit trails, UTC timestamps, and data separation
+- **Cost effective**: Efficient resource utilization and connection pooling
+- **Maintainable**: Clear separation of concerns and documentation
+
+This API provides a robust foundation for building scalable, multi-tenant applications with enterprise-grade reliability, security, and observability features built-in from day one. 

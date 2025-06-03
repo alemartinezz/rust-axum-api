@@ -1,10 +1,5 @@
-// Start of file: /src/utils/response_handler/response_handler.rs
-
-/*
-Encapsulates the unified response system:
-1) A `HandlerResponse` that can be returned from handlers
-2) A `response_wrapper` middleware that transforms any response into a standard JSON shape.
-*/
+// Unified response system for consistent API responses
+// Provides HandlerResponse struct and middleware for standardizing all responses
 
 use axum::{
     body::Body,
@@ -21,24 +16,19 @@ use tracing::{error, info};
 use std::convert::Infallible;
 use serde_json::{json, Value};
 use serde::{Serialize, Deserialize};
-// We reuse a utility function to pretty-format JSON logs
 use crate::utils::utils::to_two_space_indented_json;
 
-/* ------------------------------------------------------------------------
-   RESPONSE FORMAT & STRUCTURES
-   ------------------------------------------------------------------------ */
-
-// The final JSON structure returned to the client
+/// Standard JSON response format for all API endpoints
 #[derive(Serialize, Deserialize)]
 pub struct ResponseFormat {
-    pub status: String,          // e.g. "OK", "NOT_FOUND", "INTERNAL_SERVER_ERROR"
-    pub code: u16,               // the numeric HTTP status code
-    pub data: serde_json::Value, // any JSON data
-    pub messages: Vec<String>,   // any informational messages
-    pub date: String,            // timestamp
+    pub status: String,          // HTTP status text (e.g. "OK", "NOT_FOUND")
+    pub code: u16,               // HTTP status code
+    pub data: serde_json::Value, // Response payload
+    pub messages: Vec<String>,   // Informational messages
+    pub date: String,            // ISO timestamp
 }
 
-// A convenience struct that can be returned from handlers
+/// Convenience struct for building responses in handlers
 #[derive(Debug, Clone)]
 pub struct HandlerResponse {
     pub status_code: StatusCode,
@@ -47,7 +37,7 @@ pub struct HandlerResponse {
 }
 
 impl HandlerResponse {
-    // Initialize with a status code, defaulting data = null, messages = []
+    /// Creates a new response with specified status code
     pub fn new(status_code: StatusCode) -> Self {
         Self {
             status_code,
@@ -56,41 +46,33 @@ impl HandlerResponse {
         }
     }
 
-    // Add a JSON data object
+    /// Adds JSON data payload to the response
     pub fn data(mut self, data: serde_json::Value) -> Self {
         self.data = data;
         self
     }
 
-    // Add a message string
+    /// Adds an informational message to the response
     pub fn message(mut self, message: impl Into<String>) -> Self {
         self.messages.push(message.into());
         self
     }
 }
 
-// Converting HandlerResponse into an Axum-compatible response
 impl IntoResponse for HandlerResponse {
     fn into_response(self) -> axum::response::Response {
-        // Create response with the correct status code
         let mut response: Response<Body> = Json(json!({
             "data": self.data,
             "messages": self.messages
         })).into_response();
         
-        // Set the correct status code
         *response.status_mut() = self.status_code;
         
-        // Insert the actual HandlerResponse into the response extensions
-        // so the middleware can read it
+        // Store HandlerResponse in extensions for middleware processing
         response.extensions_mut().insert(self);
         response
     }
 }
-
-/* ------------------------------------------------------------------------
-   MIDDLEWARE: response_wrapper
-   ------------------------------------------------------------------------ */
 
 fn create_default_status_message(parts: &Parts) -> String {
     parts.status
@@ -99,7 +81,7 @@ fn create_default_status_message(parts: &Parts) -> String {
         .to_string()
 }
 
-// Extract the messages and data from our HandlerResponse in extensions
+/// Extracts response data and messages from HandlerResponse extensions
 fn extract_response_components(response: &Response<Body>) -> (Vec<String>, Value) {
     let extensions: &Extensions = response.extensions();
     let structured_response: Option<&HandlerResponse> = extensions.get::<HandlerResponse>();
@@ -110,7 +92,7 @@ fn extract_response_components(response: &Response<Body>) -> (Vec<String>, Value
     }
 }
 
-// Logs the final response in a nicely-indented JSON form
+/// Logs the formatted response with proper JSON indentation
 fn log_formatted_response(wrapped: &ResponseFormat) {
     match to_two_space_indented_json(wrapped) {
         Ok(spaced_json) => info!("\nFinal response:\n{}", spaced_json),
@@ -118,12 +100,11 @@ fn log_formatted_response(wrapped: &ResponseFormat) {
     }
 }
 
-// Builds the final Axum Response, forcing JSON
+/// Builds the final response with JSON content type
 fn build_final_response(parts: Parts, wrapped: &ResponseFormat) -> Response<Body> {
     let json_body: Vec<u8> = serde_json::to_vec(wrapped).unwrap_or_else(|_| b"{}".to_vec());
     let mut new_parts: Parts = parts;
 
-    // Force the Content-Type to JSON
     new_parts.headers.insert(
         CONTENT_TYPE,
         "application/json".parse().unwrap()
@@ -132,21 +113,16 @@ fn build_final_response(parts: Parts, wrapped: &ResponseFormat) -> Response<Body
     Response::from_parts(new_parts, Body::from(json_body))
 }
 
-// The main middleware that wraps every response in ResponseFormat
+/// Middleware that wraps all responses in the standard ResponseFormat structure
 pub async fn response_wrapper(
     req: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, Infallible> {
-    // Run the next service (handler or next layer)
     let response: Response<Body> = next.run(req).await;
 
-    // Extract the HandlerResponse fields (messages, data)
     let (messages, data) = extract_response_components(&response);
-
-    // Deconstruct the response into parts
     let (parts, _) = response.into_parts();
 
-    // Build the final top-level JSON
     let default_status: String = create_default_status_message(&parts);
     let formatted_status: String = default_status.to_uppercase().replace(' ', "_");
 
@@ -158,11 +134,7 @@ pub async fn response_wrapper(
         date: Utc::now().to_rfc3339(),
     };
 
-    // Log the final JSON structure
     log_formatted_response(&wrapped);
 
-    // Convert parts + wrapped data into a final Response
     Ok(build_final_response(parts, &wrapped))
 }
-
-// End of file: /src/utils/response_handler/response_handler.rs
