@@ -415,11 +415,18 @@ impl DatabaseService {
             .database(&self.config.db_name)
             .log_statements(LevelFilter::Debug);
 
-        // Configure search_path and timezone
+        // Configure search_path, timezone, and application_name
         if let Some(schema_name) = schema {
-            options = options.options([("search_path", schema_name), ("timezone", "UTC")]);
+            options = options.options([
+                ("search_path", schema_name), 
+                ("timezone", "UTC"),
+                ("application_name", "rust-axum-api")
+            ]);
         } else {
-            options = options.options([("timezone", "UTC")]);
+            options = options.options([
+                ("timezone", "UTC"),
+                ("application_name", "rust-axum-api")
+            ]);
         }
 
         // Configure SSL based on environment
