@@ -35,13 +35,9 @@ use crate::config::environment::EnvironmentVariables;
 /// Esta función es usada por triggers para actualizar automáticamente la columna updated_at
 const CREATE_UPDATED_AT_FUNCTION: &str = include_str!("sql/schemas/functions.sql");
 
-/// SQL para crear la tabla tenants en el schema master
-/// Solo contiene identificación y timestamps, no datos de negocio
-const CREATE_MASTER_TENANTS_TABLE: &str = include_str!("sql/schemas/master_tenants.sql");
-
-/// SQL para crear la tabla tenant_info en cada schema de tenant
-/// Contiene los datos de negocio del tenant
-const CREATE_TENANT_INFO_TABLE: &str = include_str!("sql/schemas/tenant_info.sql");
+/// SQL para crear el esquema y tabla tenants
+/// Reemplaza el enfoque de schema-per-tenant con Row-Level Security
+const CREATE_TENANTS_SCHEMA: &str = include_str!("sql/schemas/tenants_schema.sql");
 
 // =============================================================================
 // DATABASE SERVICE - Main struct and core functionality
@@ -68,18 +64,123 @@ impl DatabaseService {
         }
     }
 
-    /// Initializes the database service by setting up the master schema.
-    /// Creates master schema with tenants table and required functions.
+    /// Initializes the database service by setting up the tenants schema.
+    /// Creates tenants schema with tenants table and required functions.
     /// Should be called once at application startup.
     pub async fn initialize(&self) -> Result<()> {
         info!("Initializing DatabaseService...");
         
+        // First check if we can connect to the database at all
+        self.verify_database_connectivity().await
+            .context("Database connectivity check failed")?;
+        
         let master_pool: sqlx::Pool<sqlx::Postgres> = self.get_master_pool().await?;
-        self.initialize_master_schema(&master_pool).await
-            .context("Failed to initialize master schema")?;
+        self.initialize_database(&master_pool).await
+            .context("Failed to initialize database")?;
         
         info!("DatabaseService initialized successfully");
         Ok(())
+    }
+
+    /// Verifies database connectivity with a quick connection test.
+    /// This method uses a short timeout to fail fast when the database is not available.
+    pub async fn verify_database_connectivity(&self) -> Result<()> {
+        info!("Verifying database connectivity...");
+        
+        let connect_options: PgConnectOptions = self.create_connect_options(None).await?;
+        
+        // Use a very short timeout for the initial connection test
+        let pool_result = tokio::time::timeout(
+            std::time::Duration::from_secs(5), // 5 second timeout
+            PgPoolOptions::new()
+                .max_connections(1)
+                .acquire_timeout(std::time::Duration::from_secs(3))
+                .connect_with(connect_options)
+        ).await;
+        
+        match pool_result {
+            Ok(pool_result) => {
+                match pool_result {
+                    Ok(pool) => {
+                        // Test the connection with a simple query
+                        match sqlx::query("SELECT 1").fetch_one(&pool).await {
+                            Ok(_) => {
+                                info!("✅ Database connectivity verified successfully");
+                                pool.close().await;
+                                Ok(())
+                            }
+                            Err(e) => {
+                                pool.close().await;
+                                error!("❌ Database connection test query failed: {}", e);
+                                Err(anyhow::anyhow!(
+                                    "Database is reachable but query failed. Check credentials and database permissions: {}", e
+                                ))
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("❌ Failed to connect to database: {}", e);
+                        
+                        // Provide specific error messages based on error type
+                        let error_msg = if e.to_string().contains("Connection refused") || e.to_string().contains("No route to host") {
+                            format!(
+                                "PostgreSQL server is not running or not reachable at {}:{}.\n\
+                                💡 Possible solutions:\n\
+                                   • Start your PostgreSQL server or Docker container\n\
+                                   • Check if the database host and port are correct\n\
+                                   • Verify network connectivity\n\
+                                Error details: {}", 
+                                self.config.db_host, self.config.db_port, e
+                            )
+                        } else if e.to_string().contains("password authentication failed") {
+                            format!(
+                                "Authentication failed for database user '{}'.\n\
+                                💡 Check your database credentials (DB_USER, DB_PASSWORD)\n\
+                                Error details: {}", 
+                                self.config.db_user, e
+                            )
+                        } else if e.to_string().contains("database") && e.to_string().contains("does not exist") {
+                            format!(
+                                "Database '{}' does not exist.\n\
+                                💡 Create the database or check DB_NAME configuration\n\
+                                Error details: {}", 
+                                self.config.db_name, e
+                            )
+                        } else {
+                            format!(
+                                "Failed to connect to PostgreSQL database.\n\
+                                💡 Check your database configuration:\n\
+                                   • Host: {}\n\
+                                   • Port: {}\n\
+                                   • Database: {}\n\
+                                   • User: {}\n\
+                                Error details: {}", 
+                                self.config.db_host, self.config.db_port, 
+                                self.config.db_name, self.config.db_user, e
+                            )
+                        };
+                        
+                        Err(anyhow::anyhow!(error_msg))
+                    }
+                }
+            }
+            Err(_) => {
+                error!(
+                    "❌ Database connection timeout after 5 seconds. \
+                    PostgreSQL server at {}:{} is not responding", 
+                    self.config.db_host, self.config.db_port
+                );
+                Err(anyhow::anyhow!(
+                    "Database connection timeout.\n\
+                    💡 The PostgreSQL server is not responding. This usually means:\n\
+                       • PostgreSQL/Docker is not running\n\
+                       • Network connectivity issues\n\
+                       • Firewall blocking the connection\n\
+                    \n\
+                    Please start your database server and try again."
+                ))
+            }
+        }
     }
 
     /// Gracefully shuts down the service by closing all database connections.
@@ -123,18 +224,13 @@ impl DatabaseService {
         self.execute_sql(pool, CREATE_UPDATED_AT_FUNCTION, "update_updated_at function creation").await
     }
 
-    /// Create the master tenants table with triggers
-    async fn create_master_tenants_table(&self, pool: &PgPool) -> Result<()> {
-        self.execute_sql(pool, CREATE_MASTER_TENANTS_TABLE, "master tenants table creation").await
+    /// Create the tenants schema and table with triggers
+    async fn create_tenants_schema(&self, pool: &PgPool) -> Result<()> {
+        self.execute_sql(pool, CREATE_TENANTS_SCHEMA, "tenants schema and table creation").await
     }
 
-    /// Create the tenant info table with triggers
-    async fn create_tenant_info_table_internal(&self, pool: &PgPool) -> Result<()> {
-        self.execute_sql(pool, CREATE_TENANT_INFO_TABLE, "tenant info table creation").await
-    }
-
-    /// Initialize the master schema with all required tables and functions
-    async fn initialize_master_schema(&self, pool: &PgPool) -> Result<()> {
+    /// Initialize the database with tenants schema and master functions
+    async fn initialize_database(&self, pool: &PgPool) -> Result<()> {
         // Ensure UTC timezone for this connection
         sqlx::query("SET timezone = 'UTC'")
             .execute(pool)
@@ -144,36 +240,17 @@ impl DatabaseService {
         // Create the update function first (required for triggers)
         self.create_update_function(pool).await?;
         
-        // Create the master tenants table (includes triggers)
-        // Uses CREATE TABLE IF NOT EXISTS so existing data is preserved
-        self.create_master_tenants_table(pool).await?;
+        // Create the tenants schema and table (includes triggers and RLS)
+        // Uses CREATE SCHEMA/TABLE IF NOT EXISTS so existing data is preserved
+        self.create_tenants_schema(pool).await?;
         
-        info!("Master schema initialized successfully");
+        info!("Database with tenants schema initialized successfully");
         Ok(())
     }
 
-    /// Initialize a tenant schema with all required tables and functions
-    async fn initialize_tenant_schema(&self, pool: &PgPool) -> Result<()> {
-        // Ensure UTC timezone for this connection
-        sqlx::query("SET timezone = 'UTC'")
-            .execute(pool)
-            .await
-            .context("Failed to set timezone to UTC")?;
-
-        // Create the update function first (required for triggers)
-        self.create_update_function(pool).await?;
-        
-        // Create the tenant info table (includes triggers)
-        self.create_tenant_info_table_internal(pool).await?;
-        
-        info!("Tenant schema initialized successfully");
-        Ok(())
-    }
-
-    /// Creates the tenant_info table in a tenant schema
-    pub async fn create_tenant_info_table(&self, pool: &PgPool) -> Result<()> {
-        self.initialize_tenant_schema(pool).await
-            .context("Failed to initialize tenant schema")
+    /// Gets a pool configured to use the tenants schema
+    pub async fn get_tenants_pool(&self) -> Result<PgPool> {
+        self.get_pool("tenants", None).await
     }
 
     /// Helper method to create tables with standard timestamp fields.
@@ -257,7 +334,7 @@ impl DatabaseService {
 impl DatabaseService {
     /// Gets or creates a connection pool for the specified schema.
     /// Creates the schema if it doesn't exist and sets up required functions.
-    /// For tenant schemas, also creates the update_updated_at_column function.
+    /// For non-master schemas, also creates the update_updated_at_column function.
     pub async fn get_pool(&self, schema_name: &str, app: Option<&str>) -> Result<PgPool> {
         let pool_key: String = match app {
             Some(app_name) => format!("{}_{}", schema_name, app_name),
@@ -282,8 +359,8 @@ impl DatabaseService {
         self.ensure_schema_exists(schema_name).await?;
         let pool: sqlx::Pool<sqlx::Postgres> = self.create_pool(schema_name).await?;
 
-        // Ensure updated_at function exists in tenant schemas
-        if schema_name != "master" {
+        // Ensure updated_at function exists in non-public schemas
+        if schema_name != "master" && schema_name != "public" {
             self.create_update_function(&pool).await
                 .context(format!("Failed to create updated_at function in schema '{}'", schema_name))?;
         }
@@ -330,10 +407,11 @@ impl DatabaseService {
         self.get_pool("master", None).await
     }
 
-    /// Gets a tenant schema pool (convenience method)
-    pub async fn get_tenant_pool(&self, tenant_id: &str, app: Option<&str>) -> Result<PgPool> {
-        let schema_name: String = format!("tenant_{}", tenant_id);
-        self.get_pool(&schema_name, app).await
+    /// Gets a tenant schema pool (convenience method) - DEPRECATED
+    /// Use get_tenants_pool() instead as we no longer use per-tenant schemas
+    #[deprecated(note = "Use get_tenants_pool() instead")]
+    pub async fn get_tenant_pool(&self, _tenant_id: &str, app: Option<&str>) -> Result<PgPool> {
+        self.get_pool("tenants", app).await
     }
 
     /// Lists all active pool keys

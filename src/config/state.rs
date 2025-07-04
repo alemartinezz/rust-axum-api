@@ -31,11 +31,11 @@ impl AppState {
         &INSTANCE
     }
 
-    /// Initialize database with master schema and tenants table
+            /// Initialize database with tenants schema and table
     pub async fn init_master_schema() -> anyhow::Result<()> {
         let instance: &'static AppState = Self::instance();
         instance.database.initialize().await?;
-        tracing::info!("Database initialized with master schema and tenants table");
+        tracing::info!("Database initialized with tenants schema and table");
         Ok(())
     }
 
