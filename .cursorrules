@@ -1,0 +1,56 @@
+# PROJECT CONTEXT: High-Performance Micro SaaS Refactor (Rust/Axum on GCP)
+
+## 1. Project Goal & Philosophy
+We are refactoring an existing Rust/Axum project. The goal is "Extreme Optimization" and "Simplicity."
+* **Current State (TO BE REMOVED):** The project currently uses outdated patterns like Multi-Schema Postgres tenancy, MongoDB, and Bitbucket Pipelines.
+* **Target State:** A consolidated, high-performance Monolith using a Single Postgres Database with Row Level Security (RLS), deployed on Google Cloud Platform (GCP) via optimized GitHub Actions.
+
+## 2. The Tech Stack
+* **Language:** Rust (Latest Stable/2024).
+* **Web Framework:** Axum (managed by Tokio runtime).
+* **Database Driver:** SQLx (Pure SQL, compile-time checked). **Do not use ORMs**.
+* **Primary Database:** PostgreSQL (GCP Cloud SQL).
+* **Cache/Hot Store:** Redis (GCP Memorystore).
+* **Infrastructure:** Google Cloud Platform (GCP) managed via Terraform (IaC).
+* **Compute:** GCP Cloud Run (Gen 2) with "CPU Boost" enabled.
+
+## 3. Architectural Patterns (Strict Adherence Required)
+
+### A. Database Strategy: Single Schema + RLS
+* **Stop** using one schema per tenant.
+* **Use** a Single Schema approach where every table has a `tenant_id` column.
+* **Security:** Implement Postgres **Row Level Security (RLS)** policies.
+    * The application must NOT manually add `WHERE tenant_id = ...` to every query.
+    * Instead, the AppState must inject the tenant context into the DB session.
+
+### B. The Request Lifecycle (The "Hot Path")
+1.  **Request In:** User makes a request with a Token/API Key.
+2.  **Middleware (Auth):**
+    * Check **Redis** (GCP Memorystore) first for session/tenant context (Goal: <1ms latency).
+    * If missing, fetch from DB and populate Redis.
+3.  **Tenant Context Setup:**
+    * Before executing business logic, the middleware must set the Postgres session variable:
+    * `SET LOCAL app.current_tenant_id = 'uuid_here';`
+4.  **Execution:** Run the SQLx query. Postgres RLS automatically filters data.
+
+### C. Infrastructure (GCP + Terraform)
+* **Networking:** The Rust app (Cloud Run) connects to Postgres (Cloud SQL) via **Unix Sockets** (not TCP) for maximum performance.
+* **IaC:** All resources (Cloud Run, SQL, Redis, Artifact Registry) are defined in Terraform.
+
+## 4. CI/CD & Build Optimization (GitHub Actions)
+* **Platform:** GitHub Actions.
+* **Rust Caching (CRITICAL):**
+    * The pipeline MUST use the action `Swatinem/rust-cache@v2`.
+    * This is mandatory to cache `target/` and `~/.cargo` directories to prevent recompiling all crates on every deploy.
+* **Docker Strategy:**
+    * Use Multi-stage Docker builds (`chef` pattern or standard multi-stage) to minimize image size (`distroless` or `scratch`).
+    * Push images to **Google Artifact Registry**.
+* **Deployment:**
+    * The pipeline should automatically run `terraform apply` or `gcloud run deploy` only after the tests and build pass.
+
+## 5. Coding Standards & Style
+* **Explicit Type Annotations:**
+    * Always explicitly annotate variable types, even when the compiler can infer them (e.g., `let user_id: Uuid = ...` instead of `let user_id = ...`).
+    * This improves readability and clarifies intent.
+
+This is the source of truth. Prioritize performance, strict type safety, and build speed.

@@ -6,7 +6,6 @@ pub mod core;
 pub mod database;
 pub mod utils;
 
-pub use api::*;
 pub use config::*;
 pub use core::*;
 pub use database::*;

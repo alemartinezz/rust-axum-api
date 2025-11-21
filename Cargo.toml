@@ -62,5 +62,11 @@ uuid = { version = "1.17.0", features = ["v4", "serde"] }
 # * hostname for instance identification in monitoring
 hostname = "0.4.0"
 
+# * bcrypt for password hashing
+bcrypt = "0.16"
+
+# * Redis for caching and session management
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+
 # Tests
 reqwest = "0.12.19"

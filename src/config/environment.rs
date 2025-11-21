@@ -19,6 +19,7 @@ pub struct EnvironmentVariables {
     pub db_name: Cow<'static, str>,
     pub db_user: Cow<'static, str>,
     pub db_password: Cow<'static, str>,
+    pub redis_url: Cow<'static, str>,
 }
 
 impl EnvironmentVariables {
@@ -77,6 +78,7 @@ impl EnvironmentVariables {
         let db_name: Option<Cow<'static, str>> = check_var("DB_NAME", &mut missing_vars).map(|s: String| Cow::<'static, str>::Owned(s));
         let db_user: Option<Cow<'static, str>> = check_var("DB_USER", &mut missing_vars).map(|s: String| Cow::<'static, str>::Owned(s));
         let db_password: Option<Cow<'static, str>> = check_var("DB_PASSWORD", &mut missing_vars).map(|s: String| Cow::<'static, str>::Owned(s));
+        let redis_url: Option<Cow<'static, str>> = check_var("REDIS_URL", &mut missing_vars).map(|s: String| Cow::<'static, str>::Owned(s));
 
         // Parse numeric values and collect format errors
         let port: Option<u16> = port_str.as_ref().and_then(|s: &String| {
@@ -148,6 +150,7 @@ impl EnvironmentVariables {
             db_name: db_name.unwrap(),
             db_user: db_user.unwrap(),
             db_password: db_password.unwrap(),
+            redis_url: redis_url.unwrap(),
         })
     }
 }
